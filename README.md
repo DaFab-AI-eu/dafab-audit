@@ -13,14 +13,15 @@ Markdown export and may exceed GitHub's rendering limit.
 ## Repository layout
 
 ```text
-src/dafab_audit/       Audit, collage, and comparison code
+src/dafab_audit/       Installable audit, collage, and comparison code
+scripts/               Local operator wrappers
 tests/                 Deterministic tests
+docs/                  Configuration and operating procedures
 reports/               Published static audit snapshot
   inputs/              Exact product lists used by the audit
   evidence/            Sanitized workflow evidence for explicit skips
   water_analysis/
     products/<id>/     Metadata, report state, and HD collage per product
-docs/operations.md     Configuration and operating procedure
 ```
 
 Collages are stored with Git LFS according to [`.gitattributes`](.gitattributes).

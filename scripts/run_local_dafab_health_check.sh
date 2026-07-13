@@ -13,7 +13,6 @@ CONFIG_DIR="${DAFAB_CLIENT_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/dafab
 SECRET_DIR="${CONFIG_DIR}/audit"
 HEALTH_ENV="${DAFAB_HEALTH_ENV:-${SECRET_DIR}/rucio_health_audit.env}"
 DEFAULT_RSE_ACCOUNT="${SECRET_DIR}/rucio_health_rse_account.json"
-FALLBACK_RSE_ACCOUNT="${REPO_DIR}/../rucio-local/etc/rse-accounts.cfg"
 RSE_ACCOUNT_FILE="${DAFAB_RSE_ACCOUNT_FILE:-${DEFAULT_RSE_ACCOUNT}}"
 POSIX_ROOT="${DAFAB_RUCIO_POSIX_ROOT:-/mnt/tier2/project/p200528/rucio-data}"
 OUTPUT="${DAFAB_HEALTH_OUTPUT:-${REPO_DIR}/untracked/reports/dafab_health_check_$(date -u +%Y%m%dT%H%M%SZ).json}"
@@ -24,10 +23,6 @@ if [[ -r "${HEALTH_ENV}" ]]; then
   set -a
   source "${HEALTH_ENV}"
   set +a
-fi
-
-if [[ ! -r "${RSE_ACCOUNT_FILE}" && -r "${FALLBACK_RSE_ACCOUNT}" ]]; then
-  RSE_ACCOUNT_FILE="${FALLBACK_RSE_ACCOUNT}"
 fi
 
 [[ -n "${DAFAB_AUDIT_DB_DSN:-}" ]] || {
