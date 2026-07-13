@@ -1,0 +1,190 @@
+{
+  "id": "S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200",
+  "bbox": [
+    105.935509,
+    16.183365,
+    106.972523,
+    17.182801
+  ],
+  "type": "Feature",
+  "links": [
+    {
+      "rel": "root",
+      "href": "https://dafab.cern.ch/stac"
+    },
+    {
+      "rel": "self",
+      "href": "https://dafab.cern.ch/stac/collections/water_analysis/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200"
+    },
+    {
+      "rel": "collection",
+      "href": "https://dafab.cern.ch/stac/collections/water_analysis"
+    },
+    {
+      "rel": "derived_from",
+      "href": "https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453"
+    }
+  ],
+  "assets": {
+    "dafab-water-excess": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-water-excess",
+      "type": "application/geo+json",
+      "title": "Vectorized Excess Water"
+    },
+    "dafab-AI-cloud-mask": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-AI-cloud-mask",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "Atmospheric clouds mask with AI technologies"
+    },
+    "dafab-water-deficit": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-water-deficit",
+      "type": "application/geo+json",
+      "title": "Vectorized Deficit Water"
+    },
+    "dafab-ESA-worldcover": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-ESA-worldcover",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "ESA worldcover map"
+    },
+    "dafab-AI-observed-water": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-AI-observed-water",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "AI observed water"
+    },
+    "dafab-no-AI-observed-water": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-no-AI-observed-water",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "No-AI observed water"
+    },
+    "dafab-AI-difference-water-mask": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-AI-difference-water-mask",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "AI difference water mask"
+    },
+    "dafab-GFM-reference-water-mask": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-GFM-reference-water-mask",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "GFM reference water mask"
+    },
+    "dafab-AI-postprocessed-observed-water": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-AI-postprocessed-observed-water",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "AI postprocessed observed water"
+    },
+    "dafab-no-AI-postprocessed-observed-water": {
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20160416T031602_N0500_R118_T48QXD_20231004T224453_water_analysis_200/dafab-no-AI-postprocessed-observed-water",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "No-AI postprocessed observed water"
+    }
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          105.94034919938234,
+          17.18280084443498
+        ],
+        [
+          106.97252345262955,
+          17.175349719799087
+        ],
+        [
+          106.96237577959951,
+          16.18336492783005
+        ],
+        [
+          105.93550862813858,
+          16.19036206345145
+        ],
+        [
+          105.94034919938234,
+          17.18280084443498
+        ]
+      ]
+    ]
+  },
+  "collection": "water_analysis",
+  "properties": {
+    "datetime": "2016-04-16T03:16:02.030Z",
+    "processing:level": "L4",
+    "processing:version": "2.0.0",
+    "dafab:water-analysis": {
+      "deficit_water": {
+        "number": 12,
+        "max_area(km2)": 3.97,
+        "min_area(km2)": 0.03,
+        "mean_area(km2)": 0.43,
+        "total_area(km2)": 5.16,
+        "deficit_water_observed": 9.48
+      },
+      "observed_water": 0.477,
+      "excess_total_water": {
+        "number": 6,
+        "max_area(km2)": 1.39,
+        "min_area(km2)": 0.06,
+        "mean_area(km2)": 0.41,
+        "total_area(km2)": 2.43,
+        "excess_total_water_observed": 4.47
+      },
+      "difference_water_mask": {
+        "other": 44.0049,
+        "exclusion_observed": 55.3952,
+        "exclusion_reference": 0.0,
+        "water_excess_observed": 0.0716,
+        "water_deficit_observed": 0.0826,
+        "water_seasonal_observed": 0.0365,
+        "water_permanent_observed": 0.3689,
+        "water_seasonal_not_observed": 0.0403
+      },
+      "deficit_water_observed": 18.29,
+      "observed_water_visible": 0.477,
+      "reference_seasonal_water": 0.1416,
+      "reference_permanent_water": 0.8888,
+      "excess_total_water_observed": 23.94,
+      "excess_seasonal_water_observed": 47.5,
+      "deficit_water_observed_area(km2)": 9.96,
+      "reference_seasonal_water_visible": 0.0768,
+      "water_analysis_algorithm_version": 200,
+      "reference_permanent_water_visible": 0.4515,
+      "trustworthiness_observed_water_mask": {
+        "ai_scl": {
+          "mcc_score": 0.45,
+          "kappa_score": 0.44,
+          "iou_score_other": 1.0,
+          "iou_score_water": 0.28,
+          "overlap_other_percentage": 99.3959,
+          "overlap_water_percentage": 0.1711,
+          "left_join_water_percentage": 0.3059,
+          "right_join_water_percentage": 0.1271
+        },
+        "ai_noai": {
+          "mcc_score": 0.74,
+          "kappa_score": 0.73,
+          "iou_score_other": 1.0,
+          "iou_score_water": 0.58,
+          "overlap_other_percentage": 99.31,
+          "overlap_water_percentage": 0.3996,
+          "left_join_water_percentage": 0.0774,
+          "right_join_water_percentage": 0.213
+        },
+        "noai_scl": {
+          "mcc_score": 0.38,
+          "kappa_score": 0.36,
+          "iou_score_other": 0.99,
+          "iou_score_water": 0.22,
+          "overlap_other_percentage": 99.2531,
+          "overlap_water_percentage": 0.1639,
+          "left_join_water_percentage": 0.4487,
+          "right_join_water_percentage": 0.1343
+        }
+      },
+      "excess_total_water_observed_area(km2)": 13.03,
+      "excess_water_observed_by_permanent_seasonal": 117.65
+    }
+  },
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://stac-extensions.github.io/processing/v1.2.0/schema.json"
+  ]
+}

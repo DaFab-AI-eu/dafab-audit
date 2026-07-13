@@ -1,0 +1,516 @@
+{
+  "schema_version": 3,
+  "product_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344",
+  "scope": "dafab",
+  "use_case": "water-analysis",
+  "collection": "water_analysis",
+  "item_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200",
+  "processing_version": "2.0.0",
+  "metadata_updated_at": "2026-07-10T20:11:16.652163",
+  "catalog_revision": "a2b301b8ef988371265b388d66eb90672fef977fb327d59cea109fcf41beddab",
+  "source_revision": "5cf6ede311d97f71066e368530878b6874d2e3b09189656e5744e2b2fcb05d6d",
+  "source_revision_inputs": {
+    "item_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200",
+    "did_updated_at": "2026-07-10T20:11:00.26174",
+    "meta_updated_at": "2026-07-10T20:11:16.652163",
+    "metadata_sha256": "6a7c85ded6618eb56af0ad7b69b610ef4fa87fb141693f5b47739817fc00fde2",
+    "original_meta_updated_at": "2026-07-10T20:11:20.599016",
+    "original_metadata_sha256": "ed973ace300b7aeff97ab136b09e7503134649d537657e9d6dc97b46b5be2ced",
+    "original_asset_count": 40,
+    "original_data_bytes": 820054825,
+    "facet_placements": [
+      {
+        "facet_parent_catalog_id": "water_anomaly",
+        "facet_value_catalog_id": "water_anomaly_normal"
+      },
+      {
+        "facet_parent_catalog_id": "water_basin",
+        "facet_value_catalog_id": "water_basin_mekong"
+      }
+    ],
+    "official_assets": {
+      "stac_namespace": "dafab",
+      "item_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200",
+      "storage_check_enabled": true,
+      "metadata_asset_count": 10,
+      "attached_asset_count": 10,
+      "asset_entries": [
+        {
+          "asset_key": "dafab-AI-cloud-mask",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-cloud-mask",
+          "title": "Atmospheric clouds mask with AI technologies",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-AI-cloud-mask.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-AI-difference-water-mask",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-difference-water-mask",
+          "title": "AI difference water mask",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-AI-difference-water-mask.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-AI-observed-water",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-observed-water",
+          "title": "AI observed water",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-AI-observed-water.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-AI-postprocessed-observed-water",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-postprocessed-observed-water",
+          "title": "AI postprocessed observed water",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-AI-postprocessed-observed-water.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-ESA-worldcover",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-ESA-worldcover",
+          "title": "ESA worldcover map",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-ESA-worldcover.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-GFM-reference-water-mask",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-GFM-reference-water-mask",
+          "title": "GFM reference water mask",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-GFM-reference-water-mask.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-no-AI-observed-water",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-observed-water",
+          "title": "No-AI observed water",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-no-AI-observed-water.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-no-AI-postprocessed-observed-water",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-postprocessed-observed-water",
+          "title": "No-AI postprocessed observed water",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-no-AI-postprocessed-observed-water.tif",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-water-deficit",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-deficit",
+          "title": "Vectorized Deficit Water",
+          "type": "application/geo+json",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-water-deficit.geojson",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        },
+        {
+          "asset_key": "dafab-water-excess",
+          "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-excess",
+          "title": "Vectorized Excess Water",
+          "type": "application/geo+json",
+          "resolved_file_name": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200_dafab-water-excess.geojson",
+          "available_on_server": true,
+          "resolution_error": null,
+          "is_dafab_asset": true,
+          "available_on_storage": true,
+          "storage_names": [
+            "MELUXINA_S3"
+          ]
+        }
+      ],
+      "dafab_assets_detected": 10,
+      "available_on_storage_count": 10
+    },
+    "http_assets": [
+      {
+        "name": "generated:dafab-AI-cloud-mask",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-cloud-mask",
+        "etag": "\"c7c25a9a3623b3e2ad4cfeb91ed61482\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:09 GMT",
+        "bytes": 1606541,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-AI-difference-water-mask",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-difference-water-mask",
+        "etag": "\"bd4e71d6040c9ed0b79a7bbc00119644\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:05 GMT",
+        "bytes": 1102462,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-AI-observed-water",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-observed-water",
+        "etag": "\"ae61109392deec4bb36859282ce0e1c9\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:04 GMT",
+        "bytes": 10009796,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-AI-postprocessed-observed-water",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-postprocessed-observed-water",
+        "etag": "\"b967a03113d11fe69d319cbf4b5d16a4\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:03 GMT",
+        "bytes": 2972878,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-ESA-worldcover",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-ESA-worldcover",
+        "etag": "\"304fe6bd91623fee2f852d18e9cfd93e\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:07 GMT",
+        "bytes": 4570903,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-GFM-reference-water-mask",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-GFM-reference-water-mask",
+        "etag": "\"3d669c526f4d50554980c19d7a5c686b\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:06 GMT",
+        "bytes": 171373,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-no-AI-observed-water",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-observed-water",
+        "etag": "\"72a19f975cfae62a701a58e66c5de6dd\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:10 GMT",
+        "bytes": 6391004,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-no-AI-postprocessed-observed-water",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-postprocessed-observed-water",
+        "etag": "\"ba11ee0360e80ab4f45b46f8002afc7a\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:11 GMT",
+        "bytes": 890016,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-water-deficit",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-deficit",
+        "etag": "\"7dd580d60b02b9532d2f06e293f117dd\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:01 GMT",
+        "bytes": 43,
+        "reusable": true
+      },
+      {
+        "name": "generated:dafab-water-excess",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-excess",
+        "etag": "\"6767e7d335b555b7fc5045e263c3fdac\"",
+        "last_modified": "Fri, 10 Jul 2026 20:11:00 GMT",
+        "bytes": 1286,
+        "reusable": true
+      },
+      {
+        "name": "original:TCI_20m",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344/TCI_20m",
+        "etag": "\"0d1214bba81ed809b54be6eec7fd9bd3\"",
+        "last_modified": "Wed, 03 Jun 2026 01:42:11 GMT",
+        "bytes": 30100615,
+        "reusable": true
+      }
+    ],
+    "rejected_newer_candidates": []
+  },
+  "release_fingerprint": "e800eb1425c6994d61c24ed3ce73f763b5b9c3311b4801b254f8131d849920c6",
+  "metadata_sha256": "6a7c85ded6618eb56af0ad7b69b610ef4fa87fb141693f5b47739817fc00fde2",
+  "facet_placements": [
+    {
+      "facet_parent_catalog_id": "water_anomaly",
+      "facet_value_catalog_id": "water_anomaly_normal"
+    },
+    {
+      "facet_parent_catalog_id": "water_basin",
+      "facet_value_catalog_id": "water_basin_mekong"
+    }
+  ],
+  "official_validation": {
+    "valid": true,
+    "summary": "Validation passed.",
+    "validation_phase": "post_publish",
+    "source": "server",
+    "scope": "dafab",
+    "item_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200",
+    "collection_field": "water_analysis",
+    "parsed_id": {
+      "original_item_id": "S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344",
+      "collection_id": "water_analysis",
+      "version": "200"
+    },
+    "expected_facet_placements": [
+      {
+        "facet_parent_catalog_id": "water_anomaly",
+        "facet_value_catalog_id": "water_anomaly_normal"
+      },
+      {
+        "facet_parent_catalog_id": "water_basin",
+        "facet_value_catalog_id": "water_basin_mekong"
+      }
+    ],
+    "schema_valid": true,
+    "checks": {
+      "core_fields_valid": true,
+      "derived_id_structure_valid": true,
+      "collection_name_compatible": true,
+      "link_structure_valid": true,
+      "link_id_consistency_valid": true,
+      "navigation_links_valid": true,
+      "root_link_valid": true,
+      "derived_from_link_valid": true,
+      "stac_version_valid": true,
+      "geometry_valid": true,
+      "bbox_valid": true,
+      "temporal_valid": true,
+      "assets_valid": true,
+      "profile_block_present": true,
+      "profile_version_matches_id": true
+    },
+    "state_checks": {
+      "item_exists_as_dataset": true,
+      "collection_exists_as_container": true,
+      "collection_excludes_direct_item": true,
+      "collection_metadata_excludes_item_href": true,
+      "item_attached_to_facet_value_catalog": true,
+      "facet_value_catalog_attachments_match_expected": true,
+      "facet_value_catalog_metadata_includes_item_href": true,
+      "original_item_exists_as_dataset": true,
+      "original_item_in_original_collection": true,
+      "coordinates_match_original_item": true,
+      "original_item_metadata_has_related_backlink": true
+    },
+    "facet_value_catalog_membership": {
+      "catalog_ids": [
+        "water_anomaly_drought",
+        "water_anomaly_flood",
+        "water_anomaly_normal",
+        "water_basin_brahmaputra",
+        "water_basin_buzi",
+        "water_basin_chad",
+        "water_basin_chao_phraya",
+        "water_basin_colorado_mrbid_4405",
+        "water_basin_dordogne",
+        "water_basin_ebro",
+        "water_basin_elbe",
+        "water_basin_ganges",
+        "water_basin_garonne",
+        "water_basin_great_salt_lake",
+        "water_basin_hybas_id_l3_2030016230",
+        "water_basin_hybas_id_l6_2060010050",
+        "water_basin_irrawaddy",
+        "water_basin_iso_aus",
+        "water_basin_iso_vnm",
+        "water_basin_iso_zaf",
+        "water_basin_jubba",
+        "water_basin_lam",
+        "water_basin_loire",
+        "water_basin_ma",
+        "water_basin_mekong",
+        "water_basin_murray",
+        "water_basin_niger",
+        "water_basin_oder",
+        "water_basin_olifants",
+        "water_basin_parana",
+        "water_basin_po",
+        "water_basin_red",
+        "water_basin_rhine",
+        "water_basin_rhone",
+        "water_basin_san_joaquin",
+        "water_basin_seine",
+        "water_basin_sittang",
+        "water_basin_thu_bon",
+        "water_basin_unclassified",
+        "water_basin_weser"
+      ],
+      "expected_catalog_ids": [
+        "water_anomaly_normal",
+        "water_basin_mekong"
+      ],
+      "catalogs_with_item": [
+        "water_anomaly_normal",
+        "water_basin_mekong"
+      ],
+      "missing_expected_catalog_ids": [],
+      "unexpected_catalog_ids": [],
+      "catalogs_missing_item_href": [],
+      "item_parent_catalog_ids": [],
+      "lineage_missing_attachments": [],
+      "error": null
+    },
+    "failed_checks": [],
+    "error_count": 0,
+    "errors": [],
+    "autofix_requested": false,
+    "autofix_applied": false,
+    "autofix_effect": "not_requested"
+  },
+  "publication_valid": true,
+  "report_ready": true,
+  "report_generation": 1783842908322005000,
+  "audit": {
+    "acquired_at": "2023-04-06T03:35:41.024000Z",
+    "tile_id": "MGRS-47QQD",
+    "basin_catalog_ids": [
+      "water_basin_mekong"
+    ],
+    "anomaly_catalog_ids": [
+      "water_anomaly_normal"
+    ],
+    "validation": {
+      "valid": true,
+      "error_count": 0
+    },
+    "sizes": {
+      "original": {
+        "metadata_bytes": 97625,
+        "data_bytes": 820054825,
+        "asset_count": 40
+      },
+      "generated": {
+        "metadata_bytes": 7370,
+        "data_bytes": 27716302,
+        "asset_count": 10
+      }
+    }
+  },
+  "downloaded_assets": [
+    {
+      "asset_key": "dafab-AI-cloud-mask",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-cloud-mask",
+      "sha256": "56c21a6f644b641fc60e2197077d13612470fbda290db4cc5dc35c56f0c8f767",
+      "bytes": 1606541
+    },
+    {
+      "asset_key": "dafab-AI-difference-water-mask",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-difference-water-mask",
+      "sha256": "2547ba4c442aba883469c07e3defa9820df8b101a132bd4ec7d4a0cc5a5bb5e5",
+      "bytes": 1102462
+    },
+    {
+      "asset_key": "dafab-AI-observed-water",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-observed-water",
+      "sha256": "331a5ac786dca0bdcecbad4680e76cb67e2bc91289a46d915ab6ec0a0fd4abae",
+      "bytes": 10009796
+    },
+    {
+      "asset_key": "dafab-AI-postprocessed-observed-water",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-AI-postprocessed-observed-water",
+      "sha256": "34276dbd12a2eb9854a88fc527e1655704bfde02e3e0f971d143ed7b9d2668b9",
+      "bytes": 2972878
+    },
+    {
+      "asset_key": "dafab-ESA-worldcover",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-ESA-worldcover",
+      "sha256": "5704dce3078dde6b4aa7837540a2370e29eb3eb6a75b275222c60b830af7c2a2",
+      "bytes": 4570903
+    },
+    {
+      "asset_key": "dafab-GFM-reference-water-mask",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-GFM-reference-water-mask",
+      "sha256": "57cd6a52f10bf8f50c7777f4ae5714a549d999b9302a5421b591fff15a819fea",
+      "bytes": 171373
+    },
+    {
+      "asset_key": "dafab-no-AI-observed-water",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-observed-water",
+      "sha256": "28fc69ce2677a251e5eebf66c6ed0ba07c32941b3a834b06dcb6d73e37b36559",
+      "bytes": 6391004
+    },
+    {
+      "asset_key": "dafab-no-AI-postprocessed-observed-water",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-no-AI-postprocessed-observed-water",
+      "sha256": "dba1358e28801663524fe376bd92b7320d62de3124511c39b8611c307064c07d",
+      "bytes": 890016
+    },
+    {
+      "asset_key": "dafab-water-deficit",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-deficit",
+      "sha256": "6d18edfe75b3149104038dcbca4d0096bbcb923f0f9fa4b49f4815344e75bb90",
+      "bytes": 43
+    },
+    {
+      "asset_key": "dafab-water-excess",
+      "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344_water_analysis_200/dafab-water-excess",
+      "sha256": "fb279be09cf9d1743ab4f94068f2f0dc8dc7cf2ec121010bdbaf2cd451601fa5",
+      "bytes": 1286
+    }
+  ],
+  "rgb_source": {
+    "available": true,
+    "assets": [
+      {
+        "asset_key": "TCI_20m",
+        "href": "https://dafab.cern.ch/stac/assets/dafab/items/S2A_MSIL2A_20230406T033541_N0510_R061_T47QQD_20240827T040344/TCI_20m",
+        "sha256": "9e6294d5c3a28261e8e8f48d382b902354d87a7079b490a0eaceee8e0869c257",
+        "bytes": 30100615
+      }
+    ],
+    "source": "TCI_20m"
+  },
+  "collage": {
+    "path": "collage-hd.png",
+    "sha256": "869ebb78d06fa246aa7bda010a12aff0b0c738dcc92f28b47e98c456e24ff878",
+    "bytes": 624622,
+    "width": 1148,
+    "height": 3756
+  },
+  "scanned_at": "2026-07-12T07:55:08Z"
+}
