@@ -886,7 +886,11 @@ def prepare_product(
                 "report_generation": time.time_ns(),
                 "audit": audit_state(snapshot, downloaded_assets),
                 "downloaded_assets": downloaded_assets,
-                "rgb_source": report["original_rgb"],
+                "rgb_source": {
+                    key: value
+                    for key, value in report["original_rgb"].items()
+                    if key != "preview_path"
+                },
                 "collage": {
                     "path": "collage-hd.png",
                     "sha256": collage_sha,

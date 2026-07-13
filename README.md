@@ -7,7 +7,8 @@ the generated audit evidence is not catalog data and is not published to Rucio.
 
 The current report is available under [`reports/`](reports/). Open
 [`reports/index.html`](reports/index.html) through a web server for the sortable
-table, or use [`reports/README.md`](reports/README.md) for a Markdown view.
+table. [`reports/README.md`](reports/README.md) is a large machine-generated
+Markdown export and may exceed GitHub's rendering limit.
 
 ## Repository layout
 
@@ -24,6 +25,10 @@ docs/operations.md     Configuration and operating procedure
 
 Collages are stored with Git LFS according to [`.gitattributes`](.gitattributes).
 Clone with Git LFS enabled when the image content is needed.
+
+The Apache-2.0 license covers the software, not the generated report snapshot.
+See [`reports/NOTICE.md`](reports/NOTICE.md) for report-data provenance and
+attribution.
 
 ## Development
 

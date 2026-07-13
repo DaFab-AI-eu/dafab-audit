@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 from pathlib import Path
 from typing import Any
@@ -137,15 +138,18 @@ def rel(path: Path, root: Path) -> str:
 
 
 def write_html(path: Path, report: dict[str, Any]) -> None:
+    def escaped(value: Any) -> str:
+        return html.escape(str(value), quote=True)
+
     lines = [
         "<!doctype html>",
         "<meta charset='utf-8'>",
         "<title>DaFab generated asset comparison</title>",
         "<style>body{font-family:sans-serif;margin:24px} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:6px 8px} code{font-size:12px}</style>",
         "<h1>DaFab generated asset comparison</h1>",
-        f"<p>Baseline: <code>{report['baseline_dir']}</code></p>",
-        f"<p>Candidate: <code>{report['candidate_dir']}</code></p>",
-        f"<p>All compared assets equal: <b>{report['all_compared_assets_equal']}</b></p>",
+        f"<p>Baseline: <code>{escaped(report['baseline_dir'])}</code></p>",
+        f"<p>Candidate: <code>{escaped(report['candidate_dir'])}</code></p>",
+        f"<p>All compared assets equal: <b>{escaped(report['all_compared_assets_equal'])}</b></p>",
         "<table><tr><th>Item</th><th>Asset</th><th>Kind</th><th>Equal</th><th>Unequal %</th><th>Max abs diff</th></tr>",
     ]
     for item in report["items"]:
@@ -154,12 +158,12 @@ def write_html(path: Path, report: dict[str, Any]) -> None:
             equal = cmp.get("equal_pixels", cmp.get("equal_canonical_json", cmp.get("equal_bytes")))
             lines.append(
                 "<tr>"
-                f"<td>{item['item_id']}</td>"
-                f"<td>{asset['asset_key']}</td>"
-                f"<td>{cmp.get('kind')}</td>"
-                f"<td>{equal}</td>"
-                f"<td>{cmp.get('unequal_percent', '')}</td>"
-                f"<td>{cmp.get('max_abs_diff', '')}</td>"
+                f"<td>{escaped(item['item_id'])}</td>"
+                f"<td>{escaped(asset['asset_key'])}</td>"
+                f"<td>{escaped(cmp.get('kind'))}</td>"
+                f"<td>{escaped(equal)}</td>"
+                f"<td>{escaped(cmp.get('unequal_percent', ''))}</td>"
+                f"<td>{escaped(cmp.get('max_abs_diff', ''))}</td>"
                 "</tr>"
             )
     lines.append("</table>")
