@@ -143,6 +143,10 @@ def parse_args() -> argparse.Namespace:
         "--artifact-base-url",
         default=os.environ.get("DAFAB_AUDIT_ARTIFACT_BASE_URL") or None,
     )
+    parser.add_argument(
+        "--metadata-base-url",
+        default=os.environ.get("DAFAB_AUDIT_METADATA_BASE_URL") or None,
+    )
     parser.add_argument("--profile", default=os.environ.get("DAFAB_PROFILE", "dafab_skim"))
     parser.add_argument("--profile-dir", type=Path)
     parser.add_argument("--scope", default=DEFAULT_SCOPE)
@@ -1155,6 +1159,7 @@ def write_readme(
     budget: StorageBudget | None = None,
     *,
     artifact_base_url: str | None = None,
+    metadata_base_url: str | None = None,
 ) -> None:
     lines = [
         "# DaFab generated report",
@@ -1190,7 +1195,8 @@ def write_readme(
         original_sizes = format_size_pair(sizes.get("original"))
         generated_sizes = format_size_pair(sizes.get("generated"))
         if row["has_complete_report"]:
-            metadata_link = f"[JSON]({artifact_href(artifact_base_url, f'{product_dir}/metadata.json')})"
+            metadata_url = metadata_base_url if metadata_base_url is not None else artifact_base_url
+            metadata_link = f"[JSON]({artifact_href(metadata_url, f'{product_dir}/metadata.json')})"
             collage_link = f"[collage]({artifact_href(artifact_base_url, f'{product_dir}/collage-hd.png')})"
         else:
             metadata_link = collage_link = "—"
@@ -1215,6 +1221,7 @@ def write_sortable_report(
     budget: StorageBudget | None = None,
     *,
     artifact_base_url: str | None = None,
+    metadata_base_url: str | None = None,
 ) -> None:
     def escaped(value: Any) -> str:
         return html.escape(str(value), quote=True)
@@ -1313,10 +1320,15 @@ def write_sortable_report(
         lines.append(cell(format_size_pair(original), sort_value=original.get("data_bytes", -1)))
         lines.append(cell(format_size_pair(generated), sort_value=generated.get("data_bytes", -1)))
         if row["has_complete_report"]:
-            metadata_href = artifact_href(artifact_base_url, f"{product_dir}/metadata.json")
+            metadata_url = metadata_base_url if metadata_base_url is not None else artifact_base_url
+            metadata_href = artifact_href(metadata_url, f"{product_dir}/metadata.json")
             collage_href = artifact_href(artifact_base_url, f"{product_dir}/collage-hd.png")
-            lines.append(f'<td><a href="{escaped(metadata_href)}">JSON</a></td>')
-            lines.append(f'<td><a href="{escaped(collage_href)}">collage</a></td>')
+            lines.append(
+                f'<td><a href="{escaped(metadata_href)}" target="_blank" rel="noopener">JSON</a></td>'
+            )
+            lines.append(
+                f'<td><a href="{escaped(collage_href)}" target="_blank" rel="noopener">collage</a></td>'
+            )
         else:
             lines.extend(["<td>—</td>", "<td>—</td>"])
         lines.append("</tr>")
@@ -1373,10 +1385,23 @@ def checkpoint_report(
     budget: StorageBudget,
     *,
     artifact_base_url: str | None = None,
+    metadata_base_url: str | None = None,
 ) -> None:
     write_scan_failures(root, failures, budget)
-    write_readme(root, list(rows.values()), budget, artifact_base_url=artifact_base_url)
-    write_sortable_report(root, list(rows.values()), budget, artifact_base_url=artifact_base_url)
+    write_readme(
+        root,
+        list(rows.values()),
+        budget,
+        artifact_base_url=artifact_base_url,
+        metadata_base_url=metadata_base_url,
+    )
+    write_sortable_report(
+        root,
+        list(rows.values()),
+        budget,
+        artifact_base_url=artifact_base_url,
+        metadata_base_url=metadata_base_url,
+    )
 
 
 def format_catalog_ids(values: Any, parent_catalog_id: str) -> str:
@@ -1505,6 +1530,7 @@ def reindex_report(
         failures,
         budget,
         artifact_base_url=args.artifact_base_url,
+        metadata_base_url=getattr(args, "metadata_base_url", None),
     )
     reconciled_budget = StorageBudget.load(args.report_root)
     budget.report_bytes = reconciled_budget.report_bytes
@@ -1518,6 +1544,7 @@ def reindex_report(
 def main() -> int:
     args = parse_args()
     workers = getattr(args, "workers", 1)
+    metadata_base_url = getattr(args, "metadata_base_url", None)
     if workers < 1:
         raise ValueError("workers must be at least 1")
     args.report_root = args.report_root.expanduser().resolve()
@@ -1564,6 +1591,7 @@ def main() -> int:
             failures,
             budget,
             artifact_base_url=args.artifact_base_url,
+            metadata_base_url=metadata_base_url,
         )
 
         work_pairs = sorted(requested_pairs, key=lambda key: rows[key]["status"] == "healthy")
@@ -1679,6 +1707,7 @@ def main() -> int:
                     failures,
                     budget,
                     artifact_base_url=args.artifact_base_url,
+                    metadata_base_url=metadata_base_url,
                 )
                 changed_since_checkpoint = 0
                 last_checkpoint = now
@@ -1723,6 +1752,7 @@ def main() -> int:
                     failures,
                     budget,
                     artifact_base_url=args.artifact_base_url,
+                    metadata_base_url=metadata_base_url,
                 )
     finally:
         if revision_connection is not None:
@@ -1733,6 +1763,7 @@ def main() -> int:
         failures,
         budget,
         artifact_base_url=args.artifact_base_url,
+        metadata_base_url=metadata_base_url,
     )
     reconciled_budget = StorageBudget.load(args.report_root)
     budget.report_bytes = reconciled_budget.report_bytes

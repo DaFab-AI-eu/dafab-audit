@@ -54,6 +54,7 @@ dafab-audit-report \
   --report-root reports \
   --use-case water-analysis \
   --profile dafab_skim \
+  --metadata-base-url https://github.com/DaFab-AI-eu/dafab-audit/blob/main/reports \
   --artifact-base-url https://media.githubusercontent.com/media/DaFab-AI-eu/dafab-audit/main/reports \
   --workers 4
 ```
@@ -66,9 +67,11 @@ The command checkpoints the report while scanning. A successful run must finish
 with exit status zero and an empty `reports/scan-errors.json`. Review the status
 counts, storage budget, generated links, and changed files before publication.
 
-`--artifact-base-url` may also be set with
-`DAFAB_AUDIT_ARTIFACT_BASE_URL`. Omit it when generating a fully local report
-with relative links.
+`--metadata-base-url` selects the human-readable metadata viewer and may also
+be set with `DAFAB_AUDIT_METADATA_BASE_URL`. `--artifact-base-url` selects the
+collage location and may also be set with `DAFAB_AUDIT_ARTIFACT_BASE_URL`.
+For compatibility, metadata uses the artifact base when no metadata base is
+set. Omit both options to generate fully relative links.
 
 ## Run catalog and storage health checks
 
@@ -98,6 +101,7 @@ dafab-audit-report \
   --processing-evidence reports/evidence/processing-skips.json \
   --report-root reports \
   --use-case water-analysis \
+  --metadata-base-url https://github.com/DaFab-AI-eu/dafab-audit/blob/main/reports \
   --artifact-base-url https://media.githubusercontent.com/media/DaFab-AI-eu/dafab-audit/main/reports \
   --reindex-only
 ```

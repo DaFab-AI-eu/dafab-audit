@@ -104,9 +104,11 @@ def test_report_paths_can_come_from_environment(tmp_path, monkeypatch):
     db_env = tmp_path / "db.env"
     ca_cert = tmp_path / "ca.pem"
     artifact_base_url = "https://example.test/audit"
+    metadata_base_url = "https://example.test/metadata"
     monkeypatch.setenv("DAFAB_AUDIT_DB_ENV", str(db_env))
     monkeypatch.setenv("DAFAB_AUDIT_CA_CERT", str(ca_cert))
     monkeypatch.setenv("DAFAB_AUDIT_ARTIFACT_BASE_URL", artifact_base_url)
+    monkeypatch.setenv("DAFAB_AUDIT_METADATA_BASE_URL", metadata_base_url)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -126,6 +128,7 @@ def test_report_paths_can_come_from_environment(tmp_path, monkeypatch):
     assert args.db_env == db_env
     assert args.ca_cert == ca_cert
     assert args.artifact_base_url == artifact_base_url
+    assert args.metadata_base_url == metadata_base_url
 
 
 def test_report_requires_explicit_database_environment(tmp_path, monkeypatch):
@@ -999,6 +1002,8 @@ def test_reindex_only_rebuilds_statuses_without_external_setup(monkeypatch, tmp_
             str(evidence),
             "--artifact-base-url",
             "https://example.test/audit snapshot",
+            "--metadata-base-url",
+            "https://example.test/metadata snapshot",
             "--reindex-only",
         ],
     )
@@ -1016,8 +1021,11 @@ def test_reindex_only_rebuilds_statuses_without_external_setup(monkeypatch, tmp_
     assert readme.count("| report-error |") == 1
     assert "`EXTRA`" not in readme
     artifact_url = "https://example.test/audit%20snapshot/water_analysis/products/HEALTHY/collage-hd.png"
+    metadata_url = "https://example.test/metadata%20snapshot/water_analysis/products/HEALTHY/metadata.json"
     assert f"[collage]({artifact_url})" in readme
-    assert f'href="{artifact_url}"' in html_report
+    assert f"[JSON]({metadata_url})" in readme
+    assert f'<a href="{artifact_url}" target="_blank" rel="noopener">collage</a>' in html_report
+    assert f'<a href="{metadata_url}" target="_blank" rel="noopener">JSON</a>' in html_report
     assert json.loads((report_root / "scan-errors.json").read_text())[0]["product_id"] == "FAILED"
     assert json.loads((report_root / "storage-budget.json").read_text())["product_use_case_reports"] == 1
 
@@ -1461,7 +1469,22 @@ def test_readme_includes_automated_audit_columns(tmp_path):
     assert 'data-column="3">Product ID</button>' in sortable
     assert 'data-sort-value="1048576">4.0 KiB / 1.0 MiB</td>' in sortable
     assert f"<code>{product_id}</code>" in sortable
-    assert f'href="water_analysis/products/{product_id}/collage-hd.png"' in sortable
+    metadata_href = f"water_analysis/products/{product_id}/metadata.json"
+    collage_href = f"water_analysis/products/{product_id}/collage-hd.png"
+    assert f'<a href="{metadata_href}" target="_blank" rel="noopener">JSON</a>' in sortable
+    assert f'<a href="{collage_href}" target="_blank" rel="noopener">collage</a>' in sortable
+
+    legacy_base_url = "https://example.test/audit"
+    module.write_readme(tmp_path, [row], artifact_base_url=legacy_base_url)
+    module.write_sortable_report(tmp_path, [row], artifact_base_url=legacy_base_url)
+    legacy_metadata_href = f"{legacy_base_url}/{metadata_href}"
+    legacy_collage_href = f"{legacy_base_url}/{collage_href}"
+    readme = (tmp_path / "README.md").read_text()
+    sortable = (tmp_path / "index.html").read_text()
+    assert f"[JSON]({legacy_metadata_href})" in readme
+    assert f"[collage]({legacy_collage_href})" in readme
+    assert f'href="{legacy_metadata_href}"' in sortable
+    assert f'href="{legacy_collage_href}"' in sortable
 
 
 def test_candidate_missing_from_initial_inventory_is_checked_first():
