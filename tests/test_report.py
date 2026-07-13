@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "src" / "dafab_audit"
 REPORT_SCRIPT = PACKAGE_DIR / "report.py"
 COLLAGE_SCRIPT = PACKAGE_DIR / "collage.py"
+COMPARE_SCRIPT = PACKAGE_DIR / "compare.py"
 
 
 def load_module(name, path):
@@ -1303,7 +1304,12 @@ def test_scan_refreshes_timestamps_on_same_connection_before_commit(monkeypatch,
         Image.new("RGB", (8, 8), "white").save(collage)
         return {
             "items": [{"assets": [], "collage": "collage.png"}],
-            "original_rgb": {"available": True, "assets": [], "source": "TCI_20m"},
+            "original_rgb": {
+                "available": True,
+                "assets": [],
+                "source": "TCI_20m",
+                "preview_path": "/private/tmp/original-true-color.png",
+            },
         }
 
     def refresh(supplied_connection, **_kwargs):
@@ -1330,6 +1336,41 @@ def test_scan_refreshes_timestamps_on_same_connection_before_commit(monkeypatch,
     assert refresh_connections == [connection, connection]
     assert snapshot_calls == [initial_revisions, refreshed_revisions, refreshed_revisions, refreshed_revisions]
     assert len(commits) == 1
+    assert commits[0][1]["state"]["rgb_source"] == {
+        "available": True,
+        "assets": [],
+        "source": "TCI_20m",
+    }
+
+
+def test_comparison_html_escapes_report_values(tmp_path):
+    module = load_module("compare_generated_assets_html", COMPARE_SCRIPT)
+    path = tmp_path / "comparison.html"
+    module.write_html(
+        path,
+        {
+            "baseline_dir": "baseline<&",
+            "candidate_dir": "candidate<&",
+            "all_compared_assets_equal": False,
+            "items": [
+                {
+                    "item_id": "<item>",
+                    "assets": [
+                        {
+                            "asset_key": "<asset>",
+                            "comparison": {"kind": "<kind>", "equal_bytes": True},
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    rendered = path.read_text()
+    assert "baseline&lt;&amp;" in rendered
+    assert "&lt;item&gt;" in rendered
+    assert "&lt;asset&gt;" in rendered
+    assert "<item>" not in rendered
 
 
 def test_audit_state_uses_official_fields_and_measured_sizes():
