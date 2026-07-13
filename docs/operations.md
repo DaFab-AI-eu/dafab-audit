@@ -70,6 +70,25 @@ counts, storage budget, generated links, and changed files before publication.
 `DAFAB_AUDIT_ARTIFACT_BASE_URL`. Omit it when generating a fully local report
 with relative links.
 
+## Run catalog and storage health checks
+
+The holistic command performs the read-only database, resolver, and storage
+audit. The health command can additionally exercise client reads or an explicit
+write-and-cleanup probe:
+
+```bash
+dafab-audit-holistic --help
+dafab-audit-health --help
+```
+
+For the configured local fast check, use
+`scripts/run_local_dafab_health_check.sh`. By default, it reads the database DSN
+from `~/.config/dafab-rucio-client/audit/rucio_health_audit.env`, the RSE account
+from the adjacent `rucio_health_rse_account.json`, and client profiles from
+`~/.config/dafab-rucio-client/profiles`. These paths can be overridden with the
+environment variables documented in the script. Keep every credential file
+outside this repository with user-only permissions.
+
 To rebuild only the indexes from existing validated states and canonical skip
 evidence, without opening database, catalog, or asset connections, run:
 

@@ -13,12 +13,14 @@ authors = [
   { name = "DaFab" }
 ]
 dependencies = [
+  "boto3>=1.34,<2",
   "dafab-client>=3.1.0,<4",
   "numpy>=2.2.6,<3",
   "Pillow>=12.2.0,<13",
   "psycopg[binary]>=3.3.4,<4",
   "rasterio>=1.4.4,<1.5",
   "requests>=2.33.1,<3",
+  "urllib3>=2.6.3,<3",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +29,8 @@ test = [
 ]
 
 [project.scripts]
+dafab-audit-health = "dafab_audit.health:main"
+dafab-audit-holistic = "dafab_audit.holistic:main"
 dafab-audit-report = "dafab_audit.report:main"
 dafab-audit-compare = "dafab_audit.compare:main"
 

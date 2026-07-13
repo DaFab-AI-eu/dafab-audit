@@ -43,6 +43,8 @@ The installed commands are:
 ```text
 dafab-audit-report
 dafab-audit-compare
+dafab-audit-holistic
+dafab-audit-health
 ```
 
 See [`docs/operations.md`](docs/operations.md) before generating or updating a
