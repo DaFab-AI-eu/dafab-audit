@@ -10,6 +10,10 @@ The current report is available under [`reports/`](reports/). Open
 table. [`reports/README.md`](reports/README.md) is a large machine-generated
 Markdown export and may exceed GitHub's rendering limit.
 
+The independent PySTAC demonstration is available under
+[`pystac/`](pystac/). It includes the live navigation notebook, rendered
+HTML, the D3.2 structure, and compatibility notes.
+
 ## Repository layout
 
 ```text
@@ -17,6 +21,7 @@ src/dafab_audit/       Installable audit, collage, and comparison code
 scripts/               Local operator wrappers
 tests/                 Deterministic tests
 docs/                  Configuration and operating procedures
+pystac/                Standalone PySTAC interoperability demonstration
 reports/               Published static audit snapshot
   inputs/              Exact product lists used by the audit
   evidence/            Sanitized workflow evidence for explicit skips

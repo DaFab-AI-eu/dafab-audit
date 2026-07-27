@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pystac-navigation</title>
+<style>
+@page { size: A4; margin: 14mm 11mm; }
+* { box-sizing: border-box; }
+body {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 28px 48px;
+  color: #1f2328;
+  background: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  line-height: 1.42;
+}
+h1 { margin: 0 0 14px; font-size: 24px; }
+h2 {
+  margin: 22px 0 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #d0d7de;
+  font-size: 18px;
+  break-after: avoid;
+}
+h3 { margin: 16px 0 6px; font-size: 14px; break-after: avoid; }
+p, ul, ol { margin: 6px 0 8px; }
+li { margin: 2px 0; }
+a { color: #0969da; text-decoration: none; overflow-wrap: anywhere; }
+code {
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.92em;
+}
+p code, li code, td code {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: #eff1f3;
+}
+.cell { margin-bottom: 9px; }
+.code-cell { padding-left: 8px; border-left: 3px solid #d8dee4; }
+.prompt { margin-bottom: 2px; color: #57606a; font-size: 9px; }
+pre.input, pre.output, pre.stream, pre.markdown-code {
+  margin: 3px 0 5px;
+  padding: 7px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+pre.input, pre.markdown-code {
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+}
+pre.output, pre.stream { border: 1px solid #d8dee4; background: #fff; }
+.error { color: #cf222e; }
+.output-html { margin: 4px 0 8px; overflow-wrap: anywhere; }
+table, .md-table, .dafab-table {
+  width: 100%;
+  margin: 6px 0 10px;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 8.5px;
+}
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td, .dafab-table th, .dafab-table td {
+  max-width: 190mm;
+  padding: 3px 4px !important;
+  border: 1px solid #d0d7de !important;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal !important;
+}
+th, .dafab-table th { background: #f6f8fa !important; text-align: left; }
+.output-image { max-width: 100%; height: auto; }
+blockquote {
+  margin: 8px 0;
+  padding-left: 10px;
+  border-left: 3px solid #d0d7de;
+  color: #57606a;
+}
+@media print {
+  body { max-width: none; margin: 0; padding: 0; }
+  h1, h2, h3, thead { break-after: avoid; }
+  a { color: #1f2328; }
+}
+</style>
+</head>
+<body>
+<section class="cell markdown-cell"><h1>PySTAC capabilities with live DaFab</h1>
+<p>This notebook starts from the DaFab STAC root only, then discovers collections, facet catalogs, item links, and representative items through STAC links exposed by the service.</p>
+<h2>Notebook index</h2>
+<ol>
+<li><strong>Setup</strong>: imports, DaFab endpoint, STAC I/O, table rendering, helpers, schema validator.</li>
+<li><strong>Root-first navigation</strong>: open the root, inspect links, discover collections, summarize collections, walk the catalog tree.</li>
+<li><strong>Item navigation</strong>: collect item links, fetch representative Items, inspect item-first links, resolve DaFab-local targets, recover reverse facet membership, inspect assets and DaFab metadata.</li>
+<li><strong>Validation and serialization</strong>: STAC validation, DaFab profile checks, round-trip serialization.</li>
+</ol></section><section class="cell markdown-cell"><h2>What this notebook demonstrates</h2>
+<ul>
+<li>Open the live DaFab STAC root with PySTAC.</li>
+<li>Discover collections and facet catalogs through <code>child</code> links.</li>
+<li>Discover Items through collection/catalog <code>item</code> links.</li>
+<li>Fetch representative Items discovered from the live graph.</li>
+<li>Navigate from fetched Items through declared outbound links such as <code>root</code>, <code>collection</code>, <code>related</code>, and <code>derived_from</code>.</li>
+<li>Resolve DaFab-local link targets and reconstruct reverse facet membership from the root-driven tree scan.</li>
+<li>Inspect item assets, provenance links, and <code>dafab:*</code> metadata blocks.</li>
+<li>Run STAC core validation, PySTAC full validation, and lightweight DaFab profile checks.</li>
+<li>Show where PySTAC stops and DaFab/Rucio or <code>pystac-client</code> functionality would be needed.</li>
+</ul></section><section class="cell markdown-cell"><h2>Current PySTAC boundaries for DaFab</h2>
+<table class="md-table"><thead><tr>
+<th>Capability</th>
+<th>Why this is outside PySTAC core</th>
+<th>What would be needed</th>
+</tr></thead><tbody>
+<tr>
+<td>Standard STAC API <code>/search</code></td>
+<td>PySTAC represents STAC JSON objects; API Item Search is a client/service interaction.</td>
+<td>Use <code>pystac-client</code> if DaFab exposes a STAC API Item Search endpoint; use DaFab's enhanced filter API for DaFab/Rucio-specific filters.</td>
+</tr>
+<tr>
+<td>DaFab enhanced filters</td>
+<td>They are DaFab/Rucio-specific query semantics, not STAC core navigation semantics.</td>
+<td>A DaFab endpoint/client method, or a translator for the subset that maps cleanly to STAC API query/filter.</td>
+</tr>
+<tr>
+<td>Reverse item-to-facet lookup from an Item alone *</td>
+<td>DaFab facet membership can be many-to-many, while STAC <code>parent</code>/<code>collection</code> links are not suitable for multiple facet backlinks.</td>
+<td>Traverse from the STAC root and match catalog <code>item</code> links, expose a DaFab lookup endpoint, or index facet membership for query/search.</td>
+</tr>
+<tr>
+<td>Rucio DID create/attach/detach, hierarchy repair, replicas</td>
+<td>These are Rucio data-management operations, not STAC object-model operations.</td>
+<td>Use authenticated DaFab service or Rucio APIs. PySTAC can prepare or inspect the STAC JSON payloads around those operations.</td>
+</tr>
+<tr>
+<td>Remote writes, asset transfer, or BulkMetaDoc patching</td>
+<td>PySTAC's default writer serializes STAC JSON locally; it does not call DaFab/Rucio mutation or transfer endpoints.</td>
+<td>DaFab/Rucio client methods, plus a custom <code>StacIO</code> only if STAC JSON reads/writes should be routed through that service.</td>
+</tr>
+<tr>
+<td>Enforce DaFab publication rules</td>
+<td>STAC allows many graph shapes that DaFab intentionally rejects.</td>
+<td>DaFab profile schemas or custom validators covering source/derived membership, facet placement, and required assets.</td>
+</tr>
+<tr>
+<td>Typed helpers for <code>dafab:*</code> fields</td>
+<td>Custom fields are preserved, but PySTAC has no DaFab extension package.</td>
+<td>Publish a DaFab STAC extension schema and optionally add PySTAC extension helper classes.</td>
+</tr>
+<tr>
+<td>Typed Processing extension helpers</td>
+<td>Processing extension fields are preserved, but the PySTAC package used here does not provide a typed Processing extension helper.</td>
+<td>Add a PySTAC Processing extension helper or continue treating those fields as raw STAC extension properties.</td>
+</tr>
+<tr>
+<td>Python certificate trust for DaFab</td>
+<td>PySTAC delegates HTTPS to Python/urllib3, so reads can fail if the Python certificate store cannot validate the DaFab chain.</td>
+<td>Install/update Python certificates, configure the CA bundle, or use the custom <code>StacIO</code>; avoid disabling TLS verification except for controlled local diagnosis.</td>
+</tr>
+</tbody></table>
+<ul>
+<li>DaFab facet catalogs are navigation/index views, not necessarily the single canonical parent of an Item. The same Item may be listed under multiple facets, such as basin, anomaly type, season, or other derived classifications. Encoding those memberships as Item backlinks with <code>rel="parent"</code> or <code>rel="collection"</code> would eventually make the Item multi-parented or multi-collected, which conflicts with STAC hierarchy semantics. DaFab therefore keeps facet membership in the downward direction, with catalogs/collections linking to Items via <code>rel="item"</code>, and reverse membership is derived by scanning/querying that tree.</li>
+</ul></section><section class="cell markdown-cell"><h2>1. Setup</h2>
+<h3>1.1 Imports</h3>
+<p>Load the small set of Python modules used by the notebook and print the PySTAC version being exercised.</p></section><section class="cell code-cell"><div class="prompt">In [34]</div><pre class="input"><code>from __future__ import annotations
+
+import logging
+import warnings
+from html import escape
+from urllib.parse import urlparse
+
+import pystac
+from pystac.serialization import identify_stac_object_type
+from pystac.stac_io import DefaultStacIO
+from pystac.validation import validate_dict
+from pystac.validation.local_validator import LocalValidator
+
+# Keep the rendered notebook focused on graph results rather than library noise.
+warnings.filterwarnings(&quot;ignore&quot;, category=DeprecationWarning)
+logging.getLogger(&quot;pystac.validation.stac_validator&quot;).setLevel(logging.CRITICAL)
+
+# Rich tables are optional so the helpers also work outside Jupyter.
+try:
+    from IPython.display import HTML, display
+except Exception:
+    HTML = display = None
+
+# Record the library context alongside the live service results.
+print(&quot;PySTAC&quot;, pystac.__version__)
+print(&quot;Default STAC version&quot;, pystac.get_stac_version())</code></pre><div class="outputs"><pre class="stream">PySTAC 1.15.0-rc.0
+Default STAC version 1.1.0</pre></div></section><section class="cell markdown-cell"><h3>1.2 DaFab endpoint and HTTPS settings</h3>
+<p>Use the public DaFab STAC root directly. The TLS switch is explicit because some Python certificate stores reject the DaFab chain even when the browser and <code>curl</code> work.</p></section><section class="cell code-cell"><div class="prompt">In [35]</div><pre class="input"><code># This root document is the only hard-coded navigation entry point.
+DAFAB_STAC_URL = &quot;https://dafab.cern.ch/stac&quot;
+# Supply a CA bundle when Python does not trust the DaFab certificate chain.
+CA_BUNDLE = None
+# Disabled only for this diagnostic run. Production access should verify TLS.
+VERIFY_TLS = False</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>1.3 STAC I/O</h3>
+<p>Register the only custom PySTAC I/O hook used here: HTTP reads with the selected TLS behavior. Navigation still uses normal PySTAC objects and links.</p></section><section class="cell code-cell"><div class="prompt">In [36]</div><pre class="input"><code># Adapt only HTTP transport while parsing and traversal remain standard PySTAC.
+class DaFabStacIO(DefaultStacIO):
+    def __init__(self, ca_bundle=None, verify_tls=True):
+        super().__init__()
+        self.ca_bundle = ca_bundle
+        self.verify_tls = verify_tls
+
+    def read_text_from_href(self, href: str) -&gt; str:
+        # Preserve DefaultStacIO behavior for local files and fixtures.
+        if not href.startswith((&quot;http://&quot;, &quot;https://&quot;)):
+            return super().read_text_from_href(href)
+
+        import urllib3
+
+        if not self.verify_tls:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        # Apply the same certificate policy to every document reached by a link.
+        http = urllib3.PoolManager(
+            cert_reqs=&quot;CERT_REQUIRED&quot; if self.verify_tls else &quot;CERT_NONE&quot;,
+            ca_certs=self.ca_bundle,
+        )
+        with http.request(
+            &quot;GET&quot;,
+            href,
+            headers={&quot;User-Agent&quot;: f&quot;pystac/{pystac.__version__}&quot;},
+            preload_content=False,
+        ) as response:
+            if response.status &gt;= 400:
+                raise RuntimeError(f&quot;GET {href} returned HTTP {response.status}&quot;)
+            return response.read().decode(&quot;utf-8&quot;)
+
+
+# Use one reader for the root and a factory for links resolved internally by PySTAC.
+stac_io = DaFabStacIO(ca_bundle=CA_BUNDLE, verify_tls=VERIFY_TLS)
+pystac.StacIO.set_default(lambda: DaFabStacIO(ca_bundle=CA_BUNDLE, verify_tls=VERIFY_TLS))
+print(&quot;TLS verification:&quot;, &quot;on&quot; if VERIFY_TLS else &quot;off&quot;)
+print(&quot;CA bundle:&quot;, CA_BUNDLE or &quot;Python default&quot;)</code></pre><div class="outputs"><pre class="stream">TLS verification: off
+CA bundle: Python default</pre></div></section><section class="cell markdown-cell"><h3>1.4 Table rendering</h3>
+<p>Render long HREFs without pandas truncation so the notebook remains readable and every link stays inspectable.</p></section><section class="cell code-cell"><div class="prompt">In [37]</div><pre class="input"><code>def rows_as_table(rows: list[dict]) -&gt; None:
+    if not rows:
+        print(&quot;[]&quot;)
+        return
+    # Fall back to plain rows when rich notebook display is unavailable.
+    if display is None or HTML is None:
+        for row in rows:
+            print(row)
+        return
+
+    # Escape values while allowing long HREFs to wrap without truncation.
+    columns = list(rows[0])
+    head = &quot;&quot;.join(f&quot;&lt;th&gt;{escape(column)}&lt;/th&gt;&quot; for column in columns)
+    body = &quot;&quot;.join(
+        &quot;&lt;tr&gt;&quot;
+        + &quot;&quot;.join(f&quot;&lt;td&gt;{escape(str(row.get(column, &#x27;&#x27;)))}&lt;/td&gt;&quot; for column in columns)
+        + &quot;&lt;/tr&gt;&quot;
+        for row in rows
+    )
+    display(HTML(f&quot;&quot;&quot;
+    &lt;style&gt;
+      .dafab-table {{ border-collapse: collapse; font-size: 13px; }}
+      .dafab-table th, .dafab-table td {{ border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }}
+      .dafab-table td {{ white-space: normal; overflow-wrap: anywhere; max-width: 900px; }}
+      .dafab-table th {{ text-align: left; background: #f7f7f7; }}
+    &lt;/style&gt;
+    &lt;table class=&quot;dafab-table&quot;&gt;&lt;thead&gt;&lt;tr&gt;{head}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;{body}&lt;/tbody&gt;&lt;/table&gt;
+    &quot;&quot;&quot;))</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>1.5 STAC helpers</h3>
+<p>Keep small helpers for raw STAC dictionaries, link filtering, self HREF lookup, and collection IDs encoded in DaFab item URLs.</p></section><section class="cell code-cell"><div class="prompt">In [38]</div><pre class="input"><code># Extract a readable identifier without depending on the service hostname.
+def last_segment(href: str) -&gt; str:
+    return urlparse(href).path.rstrip(&quot;/&quot;).split(&quot;/&quot;)[-1]
+
+
+# Inspect raw links when a relation has no dedicated PySTAC helper.
+def self_href(data: dict) -&gt; str | None:
+    for link in data.get(&quot;links&quot;, []):
+        if isinstance(link, dict) and link.get(&quot;rel&quot;) == &quot;self&quot;:
+            return link.get(&quot;href&quot;)
+    return None
+
+
+def link_rows(data: dict, rel: str | None = None) -&gt; list[dict]:
+    result = data.get(&quot;links&quot;, [])
+    if rel is not None:
+        result = [link for link in result if link.get(&quot;rel&quot;) == rel]
+    return result
+
+
+# Preserve DaFab&#x27;s published absolute links instead of rewriting them locally.
+def raw_dict(obj: pystac.STACObject) -&gt; dict:
+    return obj.to_dict(transform_hrefs=False)
+
+
+# Prefer the canonical self HREF, with the object ID as a final fallback.
+def object_href(obj: pystac.STACObject) -&gt; str:
+    return obj.get_self_href() or self_href(raw_dict(obj)) or obj.id
+
+
+# Group discovered Items using the collection segment of the DaFab URL.
+def collection_id_from_item_href(href: str) -&gt; str | None:
+    parts = [part for part in urlparse(href).path.split(&quot;/&quot;) if part]
+    if &quot;collections&quot; not in parts or &quot;items&quot; not in parts:
+        return None
+    index = parts.index(&quot;collections&quot;)
+    return parts[index + 1] if index + 1 &lt; len(parts) else None</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>1.6 Core schema validator</h3>
+<p>Create a local validator for compact per-object schema checks before the fuller PySTAC validation step later in the notebook.</p></section><section class="cell code-cell"><div class="prompt">In [39]</div><pre class="input"><code># Select PySTAC&#x27;s bundled core schema after detecting each object type.
+local_validator = LocalValidator()
+core_validators = {
+    pystac.STACObjectType.CATALOG: local_validator.catalog_validator,
+    pystac.STACObjectType.COLLECTION: local_validator.collection_validator,
+    pystac.STACObjectType.ITEM: local_validator.item_validator,
+}
+
+
+# Return every message so callers can report a compact count without failing early.
+def core_schema_errors(data: dict) -&gt; list[str]:
+    object_type = identify_stac_object_type(data)
+    if object_type is None:
+        return [&quot;not identified as a STAC object&quot;]
+    return [error.message for error in core_validators[object_type]().iter_errors(data)]</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h2>2. Root-first navigation</h2>
+<h3>2.1 Open the live DaFab root</h3>
+<p>Start from the public root catalog. This is the preferred navigation entry point because it exposes the advertised collections and the rest of the tree.</p></section><section class="cell code-cell"><div class="prompt">In [40]</div><pre class="input"><code># Read only the root explicitly; all later locations come from published links.
+root = pystac.read_file(DAFAB_STAC_URL, stac_io=stac_io)
+# Keep an unchanged dictionary view for inspecting the exact root link declarations.
+root_data = raw_dict(root)
+print(root)</code></pre><div class="outputs"><pre class="stream">&lt;Catalog id=stac&gt;</pre></div></section><section class="cell markdown-cell"><h3>2.2 Root links</h3>
+<p>Inspect the root link relations exactly as published by DaFab. These links define the first navigation choices available to PySTAC.</p></section><section class="cell code-cell"><div class="prompt">In [41]</div><pre class="input"><code># Display every published relation before asking PySTAC to follow any of them.
+rows_as_table(
+    [
+        {&quot;rel&quot;: link.get(&quot;rel&quot;), &quot;href&quot;: link.get(&quot;href&quot;), &quot;target_id&quot;: last_segment(link.get(&quot;href&quot;, &quot;&quot;))}
+        for link in root_data.get(&quot;links&quot;, [])
+    ]
+)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>rel</th><th>href</th><th>target_id</th></tr></thead><tbody><tr><td>self</td><td>https://dafab.cern.ch/stac</td><td>stac</td></tr><tr><td>root</td><td>https://dafab.cern.ch/stac</td><td>stac</td></tr><tr><td>child</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a</td><td>sentinel_2_l2a</td></tr><tr><td>child</td><td>https://dafab.cern.ch/stac/collections/water_analysis</td><td>water_analysis</td></tr><tr><td>child</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture</td><td>smart_agriculture</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>2.3 Discover collections from the root</h3>
+<p>Use PySTAC's child traversal to resolve the root collection links instead of hardcoding collection URLs.</p></section><section class="cell code-cell"><div class="prompt">In [42]</div><pre class="input"><code># get_children resolves the root&#x27;s child links through the registered StacIO.
+collections = list(root.get_children())
+# Retain direct lookup while displaying the class and canonical HREF of each result.
+collection_by_id = {collection.id: collection for collection in collections}
+rows_as_table(
+    [
+        {&quot;id&quot;: collection.id, &quot;class&quot;: type(collection).__name__, &quot;self_href&quot;: object_href(collection)}
+        for collection in collections
+    ]
+)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>class</th><th>self_href</th></tr></thead><tbody><tr><td>sentinel_2_l2a</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a</td></tr><tr><td>water_analysis</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/water_analysis</td></tr><tr><td>smart_agriculture</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>2.4 Collection summaries</h3>
+<p>Summarize each discovered collection and count the outgoing links that drive further navigation.</p></section><section class="cell code-cell"><div class="prompt">In [43]</div><pre class="input"><code># Compare direct Item membership with navigation through nested facet catalogs.
+collection_rows = []
+for collection in collections:
+    data = raw_dict(collection)
+    collection_rows.append(
+        {
+            &quot;id&quot;: collection.id,
+            &quot;license&quot;: data.get(&quot;license&quot;),
+            &quot;spatial_bbox&quot;: data.get(&quot;extent&quot;, {}).get(&quot;spatial&quot;, {}).get(&quot;bbox&quot;),
+            &quot;temporal_interval&quot;: data.get(&quot;extent&quot;, {}).get(&quot;temporal&quot;, {}).get(&quot;interval&quot;),
+            &quot;child_links&quot;: len(link_rows(data, &quot;child&quot;)),
+            &quot;item_links&quot;: len(link_rows(data, &quot;item&quot;)),
+        }
+    )
+rows_as_table(collection_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>license</th><th>spatial_bbox</th><th>temporal_interval</th><th>child_links</th><th>item_links</th></tr></thead><tbody><tr><td>sentinel_2_l2a</td><td>proprietary</td><td>[[-120.75467671035365, -38.035683, 147.108611, 54.14801139115367]]</td><td>[[&#x27;2015-07-16T09:10:06.027000Z&#x27;, &#x27;2026-06-06T09:20:29.024000Z&#x27;]]</td><td>0</td><td>8181</td></tr><tr><td>water_analysis</td><td>proprietary</td><td>[[-0.699362547294467, 25.19645858464566, 90.0991685470694, 39.72681533153163]]</td><td>[[&#x27;2015-07-16T09:10:06.027000Z&#x27;, &#x27;2026-06-06T09:20:29.024000Z&#x27;]]</td><td>2</td><td>0</td></tr><tr><td>smart_agriculture</td><td>proprietary</td><td>[[-0.5726919766587134, 25.19645858464566, 90.0991685470694, 54.14800242200601]]</td><td>[[&#x27;2015-07-16T09:10:06.027000Z&#x27;, &#x27;2024-09-21T10:58:50.327000Z&#x27;]]</td><td>1</td><td>0</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>2.5 Walk the catalog tree</h3>
+<p>Walk every reachable collection/catalog node from the root. This reveals the DaFab facet hierarchy and where item links are attached.</p></section><section class="cell code-cell"><div class="prompt">In [44]</div><pre class="input"><code># Keep each reached Catalog or Collection once for later validation and lookup.
+discovered_nodes_by_href: dict[str, pystac.STACObject] = {}
+tree_rows = []
+
+# Traverse the catalog hierarchy but do not consume the Item iterator here.
+for node, children_iter, _items_iter in root.walk():
+    children = list(children_iter)
+    data = raw_dict(node)
+    href = object_href(node)
+    # The self HREF is a stable key even when IDs repeat in different branches.
+    discovered_nodes_by_href[href] = node
+    tree_rows.append(
+        {
+            &quot;id&quot;: node.id,
+            &quot;class&quot;: type(node).__name__,
+            &quot;self_href&quot;: href,
+            &quot;child_ids&quot;: [child.id for child in children],
+            &quot;item_link_count&quot;: len(link_rows(data, &quot;item&quot;)),
+        }
+    )
+
+print(&quot;Catalog/Collection nodes discovered:&quot;, len(discovered_nodes_by_href))
+rows_as_table(tree_rows)</code></pre><div class="outputs"><pre class="stream">Catalog/Collection nodes discovered: 53</pre><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>class</th><th>self_href</th><th>child_ids</th><th>item_link_count</th></tr></thead><tbody><tr><td>stac</td><td>Catalog</td><td>https://dafab.cern.ch/stac</td><td>[&#x27;sentinel_2_l2a&#x27;, &#x27;water_analysis&#x27;, &#x27;smart_agriculture&#x27;]</td><td>0</td></tr><tr><td>sentinel_2_l2a</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a</td><td>[]</td><td>8181</td></tr><tr><td>water_analysis</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/water_analysis</td><td>[&#x27;water_anomaly&#x27;, &#x27;water_basin&#x27;]</td><td>0</td></tr><tr><td>water_anomaly</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_anomaly</td><td>[&#x27;water_anomaly_flood&#x27;, &#x27;water_anomaly_drought&#x27;, &#x27;water_anomaly_normal&#x27;]</td><td>0</td></tr><tr><td>water_anomaly_flood</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_anomaly/water_anomaly_flood</td><td>[]</td><td>1460</td></tr><tr><td>water_anomaly_drought</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_anomaly/water_anomaly_drought</td><td>[]</td><td>106</td></tr><tr><td>water_anomaly_normal</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_anomaly/water_anomaly_normal</td><td>[]</td><td>6245</td></tr><tr><td>water_basin</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin</td><td>[&#x27;water_basin_ganges&#x27;, &#x27;water_basin_hybas_id_l6_2060010050&#x27;, &#x27;water_basin_hybas_id_l3_2030016230&#x27;, &#x27;water_basin_ebro&#x27;, &#x27;water_basin_rhone&#x27;, &#x27;water_basin_seine&#x27;, &#x27;water_basin_garonne&#x27;, &#x27;water_basin_elbe&#x27;, &#x27;water_basin_po&#x27;, &#x27;water_basin_dordogne&#x27;, &#x27;water_basin_buzi&#x27;, &#x27;water_basin_mekong&#x27;, &#x27;water_basin_iso_vnm&#x27;, &#x27;water_basin_chao_phraya&#x27;, &#x27;water_basin_lam&#x27;, &#x27;water_basin_red&#x27;, &#x27;water_basin_ma&#x27;, &#x27;water_basin_thu_bon&#x27;, &#x27;water_basin_rhine&#x27;, &#x27;water_basin_parana&#x27;, &#x27;water_basin_niger&#x27;, &#x27;water_basin_oder&#x27;, &#x27;water_basin_brahmaputra&#x27;, &#x27;water_basin_loire&#x27;, &#x27;water_basin_great_salt_lake&#x27;, &#x27;water_basin_murray&#x27;, &#x27;water_basin_colorado_mrbid_4405&#x27;, &#x27;water_basin_san_joaquin&#x27;, &#x27;water_basin_sittang&#x27;, &#x27;water_basin_chad&#x27;, &#x27;water_basin_iso_zaf&#x27;, &#x27;water_basin_olifants&#x27;, &#x27;water_basin_iso_aus&#x27;, &#x27;water_basin_weser&#x27;, &#x27;water_basin_irrawaddy&#x27;, &#x27;water_basin_jubba&#x27;, &#x27;water_basin_brazos&#x27;, &#x27;water_basin_titicaca&#x27;, &#x27;water_basin_sabine&#x27;]</td><td>0</td></tr><tr><td>water_basin_ganges</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_ganges</td><td>[]</td><td>1</td></tr><tr><td>water_basin_hybas_id_l6_2060010050</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_hybas_id_l6_2060010050</td><td>[]</td><td>17</td></tr><tr><td>water_basin_hybas_id_l3_2030016230</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_hybas_id_l3_2030016230</td><td>[]</td><td>16</td></tr><tr><td>water_basin_ebro</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_ebro</td><td>[]</td><td>23</td></tr><tr><td>water_basin_rhone</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_rhone</td><td>[]</td><td>50</td></tr><tr><td>water_basin_seine</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_seine</td><td>[]</td><td>29</td></tr><tr><td>water_basin_garonne</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_garonne</td><td>[]</td><td>71</td></tr><tr><td>water_basin_elbe</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_elbe</td><td>[]</td><td>87</td></tr><tr><td>water_basin_po</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_po</td><td>[]</td><td>13</td></tr><tr><td>water_basin_dordogne</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_dordogne</td><td>[]</td><td>7</td></tr><tr><td>water_basin_buzi</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_buzi</td><td>[]</td><td>1</td></tr><tr><td>water_basin_mekong</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_mekong</td><td>[]</td><td>5317</td></tr><tr><td>water_basin_iso_vnm</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_iso_vnm</td><td>[]</td><td>159</td></tr><tr><td>water_basin_chao_phraya</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_chao_phraya</td><td>[]</td><td>1000</td></tr><tr><td>water_basin_lam</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_lam</td><td>[]</td><td>153</td></tr><tr><td>water_basin_red</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_red</td><td>[]</td><td>369</td></tr><tr><td>water_basin_ma</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_ma</td><td>[]</td><td>346</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_thu_bon</td><td>[]</td><td>38</td></tr><tr><td>water_basin_rhine</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_rhine</td><td>[]</td><td>23</td></tr><tr><td>water_basin_parana</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_parana</td><td>[]</td><td>8</td></tr><tr><td>water_basin_niger</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_niger</td><td>[]</td><td>21</td></tr><tr><td>water_basin_oder</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_oder</td><td>[]</td><td>14</td></tr><tr><td>water_basin_brahmaputra</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_brahmaputra</td><td>[]</td><td>5</td></tr><tr><td>water_basin_loire</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_loire</td><td>[]</td><td>23</td></tr><tr><td>water_basin_great_salt_lake</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_great_salt_lake</td><td>[]</td><td>2</td></tr><tr><td>water_basin_murray</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_murray</td><td>[]</td><td>1</td></tr><tr><td>water_basin_colorado_mrbid_4405</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_colorado_mrbid_4405</td><td>[]</td><td>2</td></tr><tr><td>water_basin_san_joaquin</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_san_joaquin</td><td>[]</td><td>1</td></tr><tr><td>water_basin_sittang</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_sittang</td><td>[]</td><td>1</td></tr><tr><td>water_basin_chad</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_chad</td><td>[]</td><td>1</td></tr><tr><td>water_basin_iso_zaf</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_iso_zaf</td><td>[]</td><td>3</td></tr><tr><td>water_basin_olifants</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_olifants</td><td>[]</td><td>1</td></tr><tr><td>water_basin_iso_aus</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_iso_aus</td><td>[]</td><td>2</td></tr><tr><td>water_basin_weser</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_weser</td><td>[]</td><td>1</td></tr><tr><td>water_basin_irrawaddy</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_irrawaddy</td><td>[]</td><td>1</td></tr><tr><td>water_basin_jubba</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_jubba</td><td>[]</td><td>1</td></tr><tr><td>water_basin_brazos</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_brazos</td><td>[]</td><td>2</td></tr><tr><td>water_basin_titicaca</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_titicaca</td><td>[]</td><td>1</td></tr><tr><td>water_basin_sabine</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/catalogs/water_basin/water_basin_sabine</td><td>[]</td><td>1</td></tr><tr><td>smart_agriculture</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture</td><td>[&#x27;agriculture_season&#x27;]</td><td>0</td></tr><tr><td>agriculture_season</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/catalogs/agriculture_season</td><td>[&#x27;agriculture_season_winter&#x27;, &#x27;agriculture_season_spring&#x27;, &#x27;agriculture_season_summer&#x27;, &#x27;agriculture_season_autumn&#x27;]</td><td>0</td></tr><tr><td>agriculture_season_winter</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/catalogs/agriculture_season/agriculture_season_winter</td><td>[]</td><td>176</td></tr><tr><td>agriculture_season_spring</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/catalogs/agriculture_season/agriculture_season_spring</td><td>[]</td><td>213</td></tr><tr><td>agriculture_season_summer</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/catalogs/agriculture_season/agriculture_season_summer</td><td>[]</td><td>113</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/catalogs/agriculture_season/agriculture_season_autumn</td><td>[]</td><td>36</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h2>3. Item navigation</h2>
+<h3>3.1 Item links discovered from the tree</h3>
+<p>Collect every <code>item</code> link advertised by the root-driven tree. The stored rows remain complete; only this visual table is shortened.</p></section><section class="cell code-cell"><div class="prompt">In [45]</div><pre class="input"><code># Preserve the advertising parent because one Item may appear under several facets.
+item_link_rows = []
+for parent_href, node in discovered_nodes_by_href.items():
+    for link in link_rows(raw_dict(node), &quot;item&quot;):
+        href = link.get(&quot;href&quot;)
+        if href:
+            item_link_rows.append(
+                {
+                    &quot;parent_id&quot;: node.id,
+                    &quot;parent_class&quot;: type(node).__name__,
+                    &quot;item_id&quot;: last_segment(href),
+                    &quot;item_href&quot;: href,
+                }
+            )
+
+# Keep all memberships, but deduplicate HREFs before any Item documents are fetched.
+item_link_rows = sorted(item_link_rows, key=lambda row: (row[&quot;parent_id&quot;], row[&quot;item_id&quot;]))
+item_hrefs = sorted({row[&quot;item_href&quot;] for row in item_link_rows})
+print(&quot;Item links discovered:&quot;, len(item_link_rows))
+print(&quot;Unique item HREFs:&quot;, len(item_hrefs))
+
+# Shorten only the rendered table; the complete rows remain available for analysis.
+shown_item_link_rows = item_link_rows
+if len(item_link_rows) &gt; 16:
+    shown_item_link_rows = [
+        *item_link_rows[:8],
+        {
+            &quot;parent_id&quot;: &quot;...&quot;,
+            &quot;parent_class&quot;: &quot;...&quot;,
+            &quot;item_id&quot;: f&quot;... {len(item_link_rows) - 16} rows omitted ...&quot;,
+            &quot;item_href&quot;: &quot;...&quot;,
+        },
+        *item_link_rows[-8:],
+    ]
+rows_as_table(shown_item_link_rows)</code></pre><div class="outputs"><pre class="stream">Item links discovered: 24342
+Unique item HREFs: 16531</pre><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>parent_id</th><th>parent_class</th><th>item_id</th><th>item_href</th></tr></thead><tbody><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_31TDK_20240916_0_L2A_smart_agriculture_120</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_31TDK_20240916_0_L2A_smart_agriculture_120</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151022T034152_N0500_R018_T48PWB_20231009T082656_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151022T034152_N0500_R018_T48PWB_20231009T082656_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151022T034152_N0500_R018_T48PWC_20231009T082656_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151022T034152_N0500_R018_T48PWC_20231009T082656_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151022T034152_N0500_R018_T48QVD_20231009T082656_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151022T034152_N0500_R018_T48QVD_20231009T082656_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151022T034152_N0500_R018_T48QVE_20231009T082656_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151022T034152_N0500_R018_T48QVE_20231009T082656_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151022T034152_N0500_R018_T48QWD_20231009T082656_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151022T034152_N0500_R018_T48QWD_20231009T082656_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151115T032112_N0500_R075_T48PYA_20231009T042401_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151115T032112_N0500_R075_T48PYA_20231009T042401_smart_agriculture_200</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>S2A_MSIL2A_20151115T032112_N0500_R075_T48QYD_20231009T042401_smart_agriculture_200</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_MSIL2A_20151115T032112_N0500_R075_T48QYD_20231009T042401_smart_agriculture_200</td></tr><tr><td>...</td><td>...</td><td>... 24326 rows omitted ...</td><td>...</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2B_MSIL2A_20230211T030849_N0510_R075_T48PYC_20240813T185708_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20230211T030849_N0510_R075_T48PYC_20240813T185708_water_analysis_200</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2B_MSIL2A_20230601T030529_N0510_R075_T48PYC_20241003T031039_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20230601T030529_N0510_R075_T48PYC_20241003T031039_water_analysis_200</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2B_MSIL2A_20240416T030529_N0510_R075_T48PYC_20240416T061605_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20240416T030529_N0510_R075_T48PYC_20240416T061605_water_analysis_200</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2B_MSIL2A_20240426T030519_N0510_R075_T48PYC_20240426T062656_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20240426T030519_N0510_R075_T48PYC_20240426T062656_water_analysis_200</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2B_MSIL2A_20250302T030539_N0511_R075_T48PYC_20250302T055350_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20250302T030539_N0511_R075_T48PYC_20250302T055350_water_analysis_200</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>S2C_MSIL2A_20250327T030541_N0511_R075_T48PYC_20250327T081013_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2C_MSIL2A_20250327T030541_N0511_R075_T48PYC_20250327T081013_water_analysis_200</td></tr><tr><td>water_basin_titicaca</td><td>Catalog</td><td>S2C_MSIL2A_20250619T144751_N0511_R139_T19LDC_20250619T192315_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2C_MSIL2A_20250619T144751_N0511_R139_T19LDC_20250619T192315_water_analysis_200</td></tr><tr><td>water_basin_weser</td><td>Catalog</td><td>S2B_MSIL2A_20210531T101559_N0500_R065_T32UPD_20230301T002441_water_analysis_200</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2B_MSIL2A_20210531T101559_N0500_R065_T32UPD_20230301T002441_water_analysis_200</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.2 Representative Item HREFs by collection</h3>
+<p>Pick one discovered Item per collection so the rest of the notebook stays compact while still covering original and derived products.</p></section><section class="cell code-cell"><div class="prompt">In [46]</div><pre class="input"><code># Partition the unique Item HREFs without fetching their documents.
+item_hrefs_by_collection: dict[str, list[str]] = {}
+for href in item_hrefs:
+    collection_id = collection_id_from_item_href(href) or &quot;unknown&quot;
+    item_hrefs_by_collection.setdefault(collection_id, []).append(href)
+
+# Choose the first sorted HREF for deterministic, low-volume live retrieval.
+representative_item_hrefs = [hrefs[0] for _, hrefs in sorted(item_hrefs_by_collection.items())]
+rows_as_table(
+    [
+        {
+            &quot;collection&quot;: collection_id,
+            &quot;discovered_item_links&quot;: len(hrefs),
+            &quot;representative_item_href&quot;: hrefs[0],
+        }
+        for collection_id, hrefs in sorted(item_hrefs_by_collection.items())
+    ]
+)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>collection</th><th>discovered_item_links</th><th>representative_item_href</th></tr></thead><tbody><tr><td>sentinel_2_l2a</td><td>8181</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td></tr><tr><td>smart_agriculture</td><td>538</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td></tr><tr><td>water_analysis</td><td>7812</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2A_45RYJ_20221205_0_L2A_water_analysis_100</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.3 Fetch representative Items</h3>
+<p>Load the representative Items with PySTAC. The source HREFs come from the discovered tree, so this remains a live navigation example.</p></section><section class="cell code-cell"><div class="prompt">In [47]</div><pre class="input"><code># Retain both PySTAC objects and untransformed JSON for different inspections below.
+representative_items_by_href: dict[str, pystac.Item] = {}
+representative_item_json_by_href: dict[str, dict] = {}
+item_fetch_rows = []
+
+# Fetch only the deterministic representative selected for each collection.
+for href in representative_item_hrefs:
+    item = pystac.read_file(href, stac_io=stac_io)
+    data = raw_dict(item)
+    representative_items_by_href[href] = item
+    representative_item_json_by_href[href] = data
+    item_fetch_rows.append(
+        {
+            &quot;id&quot;: item.id,
+            &quot;collection&quot;: item.collection_id,
+            &quot;self_href&quot;: object_href(item),
+            &quot;assets&quot;: len(item.assets),
+            &quot;links&quot;: len(data.get(&quot;links&quot;, [])),
+        }
+    )
+
+rows_as_table(item_fetch_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>collection</th><th>self_href</th><th>assets</th><th>links</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td><td>36</td><td>4</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>1</td><td>4</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>10</td><td>4</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.4 Item-first outgoing links</h3>
+<p>Starting from each fetched Item, inspect every declared outgoing link. These are the direct navigation options available without scanning the tree again.</p></section><section class="cell code-cell"><div class="prompt">In [48]</div><pre class="input"><code># Inspect outgoing declarations without fetching target HREFs in this cell.
+item_first_link_rows = []
+for source_href, data in representative_item_json_by_href.items():
+    for link in data.get(&quot;links&quot;, []):
+        href = link.get(&quot;href&quot;)
+        item_first_link_rows.append(
+            {
+                &quot;item_id&quot;: data.get(&quot;id&quot;),
+                &quot;collection&quot;: data.get(&quot;collection&quot;),
+                &quot;rel&quot;: link.get(&quot;rel&quot;),
+                &quot;target_id&quot;: last_segment(href) if href else None,
+                &quot;href&quot;: href,
+            }
+        )
+
+rows_as_table(item_first_link_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>item_id</th><th>collection</th><th>rel</th><th>target_id</th><th>href</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>self</td><td>S2A_30TYN_20200311_1_L2A</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>root</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>collection</td><td>sentinel_2_l2a</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>related</td><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>self</td><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>root</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>collection</td><td>smart_agriculture</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>derived_from</td><td>S2A_30TYN_20200311_1_L2A</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>self</td><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2A_45RYJ_20221205_0_L2A_water_analysis_100</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>root</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>collection</td><td>water_analysis</td><td>https://dafab.cern.ch/stac/collections/water_analysis</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>derived_from</td><td>S2A_45RYJ_20221205_0_L2A</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_45RYJ_20221205_0_L2A</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.5 Resolve DaFab-local targets from Items</h3>
+<p>Resolve Item links that point back into DaFab. External links are reported as external instead of fetched, keeping this cell focused on the DaFab STAC graph.</p></section><section class="cell code-cell"><div class="prompt">In [49]</div><pre class="input"><code># Cache resolved types and IDs so repeated targets require only one HTTP read.
+target_cache: dict[str, tuple[str, str | None]] = {}
+
+
+def read_dafab_target(href: str) -&gt; tuple[str, str | None]:
+    # Report external provenance without leaving the DaFab graph in this example.
+    if not href.startswith(DAFAB_STAC_URL):
+        return &quot;external&quot;, last_segment(href)
+    if href not in target_cache:
+        target = pystac.read_file(href, stac_io=stac_io)
+        target_cache[href] = (type(target).__name__, target.id)
+    return target_cache[href]
+
+
+# Resolve navigation and provenance relations while skipping loaded self targets.
+resolved_item_link_rows = []
+for source_href, data in representative_item_json_by_href.items():
+    for rel in [&quot;root&quot;, &quot;collection&quot;, &quot;derived_from&quot;, &quot;related&quot;]:
+        for link in link_rows(data, rel):
+            href = link.get(&quot;href&quot;)
+            if not href:
+                continue
+            target_type, target_id = read_dafab_target(href)
+            resolved_item_link_rows.append(
+                {
+                    &quot;item_id&quot;: data.get(&quot;id&quot;),
+                    &quot;rel&quot;: rel,
+                    &quot;target_type&quot;: target_type,
+                    &quot;target_id&quot;: target_id,
+                    &quot;href&quot;: href,
+                }
+            )
+
+rows_as_table(resolved_item_link_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>item_id</th><th>rel</th><th>target_type</th><th>target_id</th><th>href</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>root</td><td>Catalog</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>collection</td><td>Collection</td><td>sentinel_2_l2a</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>related</td><td>Item</td><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>root</td><td>Catalog</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>collection</td><td>Collection</td><td>smart_agriculture</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>derived_from</td><td>Item</td><td>S2A_30TYN_20200311_1_L2A</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>root</td><td>Catalog</td><td>stac</td><td>https://dafab.cern.ch/stac</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>collection</td><td>Collection</td><td>water_analysis</td><td>https://dafab.cern.ch/stac/collections/water_analysis</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>derived_from</td><td>Item</td><td>S2A_45RYJ_20221205_0_L2A</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_45RYJ_20221205_0_L2A</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.6 Reverse catalog membership</h3>
+<p>Item documents do not need to contain backlinks to every catalog that lists them. When that reverse view is needed, derive it from the root-driven tree scan.</p></section><section class="cell code-cell"><div class="prompt">In [50]</div><pre class="input"><code># Reverse the earlier Catalog-to-Item links rather than looking for Item backlinks.
+representative_item_ids = {data.get(&quot;id&quot;) for data in representative_item_json_by_href.values()}
+# These rows describe facet placement, which is separate from Item provenance.
+reverse_membership_rows = [
+    {
+        &quot;item_id&quot;: row[&quot;item_id&quot;],
+        &quot;linked_by&quot;: row[&quot;parent_id&quot;],
+        &quot;parent_class&quot;: row[&quot;parent_class&quot;],
+        &quot;item_href&quot;: row[&quot;item_href&quot;],
+    }
+    for row in item_link_rows
+    if row[&quot;item_id&quot;] in representative_item_ids
+]
+
+rows_as_table(reverse_membership_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>item_id</th><th>linked_by</th><th>parent_class</th><th>item_href</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>agriculture_season_spring</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/smart_agriculture/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>Collection</td><td>https://dafab.cern.ch/stac/collections/sentinel_2_l2a/items/S2A_30TYN_20200311_1_L2A</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_basin_ganges</td><td>Catalog</td><td>https://dafab.cern.ch/stac/collections/water_analysis/items/S2A_45RYJ_20221205_0_L2A_water_analysis_100</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.7 Navigation capability matrix</h3>
+<table class="md-table"><thead><tr>
+<th>Starting point</th>
+<th>Works now</th>
+<th>Route</th>
+<th>Result</th>
+</tr></thead><tbody>
+<tr>
+<td>Root catalog</td>
+<td>yes</td>
+<td><code>pystac.read_file(root)</code> -&gt; child links -&gt; <code>get_children()</code> / <code>walk()</code></td>
+<td>Collections and facet catalogs</td>
+</tr>
+<tr>
+<td>Collection or Catalog</td>
+<td>yes</td>
+<td><code>child</code> and <code>item</code> links</td>
+<td>Deeper facet catalogs and advertised Items</td>
+</tr>
+<tr>
+<td>Fetched Item</td>
+<td>yes</td>
+<td>Declared Item links</td>
+<td>Root, collection, provenance, and related products when links exist</td>
+</tr>
+<tr>
+<td>Fetched Item needing facet placement</td>
+<td>yes, through the tree</td>
+<td>Scan root tree <code>item</code> links and match Item IDs/HREFs</td>
+<td>Catalogs that advertise the Item</td>
+</tr>
+<tr>
+<td>Spatial/time/property query</td>
+<td>outside PySTAC core</td>
+<td>STAC API search with <code>pystac-client</code> if exposed, or DaFab enhanced filters</td>
+<td>Query-selected Items</td>
+</tr>
+</tbody></table></section><section class="cell markdown-cell"><h3>3.8 Item summaries</h3>
+<p>Compare the fetched Items, including declared provenance and related-product links.</p></section><section class="cell code-cell"><div class="prompt">In [51]</div><pre class="input"><code># Compare core spatiotemporal fields, assets, and both provenance directions.
+item_rows = []
+for href, item in representative_items_by_href.items():
+    data = representative_item_json_by_href[href]
+    properties = data.get(&quot;properties&quot;, {})
+    item_rows.append(
+        {
+            &quot;id&quot;: item.id,
+            &quot;collection&quot;: item.collection_id,
+            &quot;datetime&quot;: properties.get(&quot;datetime&quot;),
+            &quot;bbox&quot;: data.get(&quot;bbox&quot;),
+            &quot;assets&quot;: list(data.get(&quot;assets&quot;, {}).keys()),
+            &quot;related&quot;: [last_segment(link[&quot;href&quot;]) for link in link_rows(data, &quot;related&quot;)],
+            &quot;derived_from&quot;: [last_segment(link[&quot;href&quot;]) for link in link_rows(data, &quot;derived_from&quot;)],
+        }
+    )
+rows_as_table(item_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>collection</th><th>datetime</th><th>bbox</th><th>assets</th><th>related</th><th>derived_from</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>sentinel_2_l2a</td><td>2020-03-11T10:59:12.936000Z</td><td>[-0.5726919766587134, 42.30246099916119, 0.8181108416652176, 43.32624770923024]</td><td>[&#x27;aot&#x27;, &#x27;nir&#x27;, &#x27;red&#x27;, &#x27;scl&#x27;, &#x27;wvp&#x27;, &#x27;blue&#x27;, &#x27;green&#x27;, &#x27;nir08&#x27;, &#x27;nir09&#x27;, &#x27;swir16&#x27;, &#x27;swir22&#x27;, &#x27;visual&#x27;, &#x27;aot-jp2&#x27;, &#x27;coastal&#x27;, &#x27;nir-jp2&#x27;, &#x27;red-jp2&#x27;, &#x27;scl-jp2&#x27;, &#x27;wvp-jp2&#x27;, &#x27;blue-jp2&#x27;, &#x27;rededge1&#x27;, &#x27;rededge2&#x27;, &#x27;rededge3&#x27;, &#x27;green-jp2&#x27;, &#x27;nir08-jp2&#x27;, &#x27;nir09-jp2&#x27;, &#x27;thumbnail&#x27;, &#x27;swir16-jp2&#x27;, &#x27;swir22-jp2&#x27;, &#x27;visual-jp2&#x27;, &#x27;coastal-jp2&#x27;, &#x27;rededge1-jp2&#x27;, &#x27;rededge2-jp2&#x27;, &#x27;rededge3-jp2&#x27;, &#x27;granule_metadata&#x27;, &#x27;tileinfo_metadata&#x27;, &#x27;dafab-field-boundaries&#x27;]</td><td>[&#x27;S2A_30TYN_20200311_1_L2A_smart_agriculture_120&#x27;]</td><td>[]</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>smart_agriculture</td><td>2020-03-11T10:59:12.936000Z</td><td>[-0.5726919766587134, 42.30246099916119, 0.8181108416652176, 43.32624770923024]</td><td>[&#x27;dafab-field-boundaries&#x27;]</td><td>[]</td><td>[&#x27;S2A_30TYN_20200311_1_L2A&#x27;]</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>water_analysis</td><td>2022-12-05T00:00:00Z</td><td>[88.98479843212748, 25.19645858464566, 90.0991685470694, 26.20599133191409]</td><td>[&#x27;dafab-water-excess&#x27;, &#x27;dafab-AI-cloud-mask&#x27;, &#x27;dafab-water-deficit&#x27;, &#x27;dafab-ESA-worldcover&#x27;, &#x27;dafab-AI-observed-water&#x27;, &#x27;dafab-no-AI-observed-water&#x27;, &#x27;dafab-AI-difference-water-mask&#x27;, &#x27;dafab-GFM-reference-water-mask&#x27;, &#x27;dafab-AI-postprocessed-observed-water&#x27;, &#x27;dafab-no-AI-postprocessed-observed-water&#x27;]</td><td>[]</td><td>[&#x27;S2A_45RYJ_20221205_0_L2A&#x27;]</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.9 Asset summaries</h3>
+<p>List the assets PySTAC sees on each representative Item. PySTAC inspects these HREFs and metadata; it does not download the asset bytes here.</p></section><section class="cell code-cell"><div class="prompt">In [52]</div><pre class="input"><code># Inspect declared asset metadata only; no asset bytes are downloaded.
+asset_rows = []
+for item in representative_items_by_href.values():
+    for key, asset in item.assets.items():
+        asset_rows.append(
+            {
+                &quot;item_id&quot;: item.id,
+                &quot;asset_key&quot;: key,
+                &quot;media_type&quot;: asset.media_type,
+                &quot;title&quot;: asset.title,
+                &quot;href&quot;: asset.href,
+            }
+        )
+rows_as_table(asset_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>item_id</th><th>asset_key</th><th>media_type</th><th>title</th><th>href</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>aot</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Aerosol optical thickness (AOT)</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/AOT.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>NIR 1 (band 8) - 10m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B08.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>red</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Red (band 4) - 10m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B04.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>scl</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Scene classification map (SCL)</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/SCL.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>wvp</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Water vapour (WVP)</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/WVP.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>blue</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Blue (band 2) - 10m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B02.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>green</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Green (band 3) - 10m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B03.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir08</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>NIR 2 (band 8A) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B8A.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir09</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>NIR 3 (band 9) - 60m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B09.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>swir16</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>SWIR 1 (band 11) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B11.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>swir22</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>SWIR 2 (band 12) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B12.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>visual</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>True color image</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/TCI.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>aot-jp2</td><td>image/jp2</td><td>Aerosol optical thickness (AOT)</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/AOT.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>coastal</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Coastal aerosol (band 1) - 60m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B01.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir-jp2</td><td>image/jp2</td><td>NIR 1 (band 8) - 10m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B08.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>red-jp2</td><td>image/jp2</td><td>Red (band 4) - 10m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B04.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>scl-jp2</td><td>image/jp2</td><td>Scene classification map (SCL)</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/SCL.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>wvp-jp2</td><td>image/jp2</td><td>Water vapour (WVP)</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/WVP.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>blue-jp2</td><td>image/jp2</td><td>Blue (band 2) - 10m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B02.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge1</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Red edge 1 (band 5) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B05.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge2</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Red edge 2 (band 6) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B06.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge3</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Red edge 3 (band 7) - 20m</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/B07.tif</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>green-jp2</td><td>image/jp2</td><td>Green (band 3) - 10m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B03.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir08-jp2</td><td>image/jp2</td><td>NIR 2 (band 8A) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B8A.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>nir09-jp2</td><td>image/jp2</td><td>NIR 3 (band 9) - 60m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B09.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>thumbnail</td><td>image/jpeg</td><td>Thumbnail image</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/thumbnail.jpg</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>swir16-jp2</td><td>image/jp2</td><td>SWIR 1 (band 11) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B11.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>swir22-jp2</td><td>image/jp2</td><td>SWIR 2 (band 12) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B12.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>visual-jp2</td><td>image/jp2</td><td>True color image</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/TCI.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>coastal-jp2</td><td>image/jp2</td><td>Coastal aerosol (band 1) - 60m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B01.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge1-jp2</td><td>image/jp2</td><td>Red edge 1 (band 5) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B05.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge2-jp2</td><td>image/jp2</td><td>Red edge 2 (band 6) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B06.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>rededge3-jp2</td><td>image/jp2</td><td>Red edge 3 (band 7) - 20m</td><td>s3://sentinel-s2-l2a/tiles/30/T/YN/2020/3/11/1/B07.jp2</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>granule_metadata</td><td>application/xml</td><td>None</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/granule_metadata.xml</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>tileinfo_metadata</td><td>application/json</td><td>None</td><td>https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/30/T/YN/2020/3/S2A_30TYN_20200311_1_L2A/tileinfo_metadata.json</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>dafab-field-boundaries</td><td>GeoJSON</td><td>Agricultural Field Boundaries</td><td>field-boundaries-S2A_30TYN_20200311_1_L2A-10-v1.2.0.geojson</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>dafab-field-boundaries</td><td>application/geo+json</td><td>Agricultural Field Boundaries</td><td>https://dafab.cern.ch/stac/assets/dafab/items/S2A_30TYN_20200311_1_L2A_smart_agriculture_120/dafab-field-boundaries</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-water-excess</td><td>application/geo+json</td><td>Vectorized Excess Water</td><td>URL to Vectorized-Water-Excess_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.geojson</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-AI-cloud-mask</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Atmospheric clouds mask with AI technologies</td><td>URL to AI-cloud-mask_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-water-deficit</td><td>application/geo+json</td><td>Vectorized Deficit Water</td><td>URL to Vectorized-Water-Deficit_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.geojson</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-ESA-worldcover</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>ESA worldcover map</td><td>URL to ESA-worldcover-water-mask_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-AI-observed-water</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Observed Water Mask with AI technologies</td><td>URL to AI-observed-water_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-no-AI-observed-water</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Observed Water Mask without AI technologies</td><td>URL to no-AI-observed-water_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-AI-difference-water-mask</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Delta / Change Water Mask wrt Reference Water mask with AI technologies</td><td>URL to AI-difference-water-mask_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-GFM-reference-water-mask</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Global Flood Monitoring Reference Water Mask</td><td>URL to GFM-reference-water-mask_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-AI-postprocessed-observed-water</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Post-processed Observed Water Mask with AI technologies</td><td>URL to AI-postprocessed-observed-water_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab-no-AI-postprocessed-observed-water</td><td>image/tiff; application=geotiff; profile=cloud-optimized</td><td>Post-processed Observed Water Mask without AI technologies</td><td>URL to no-AI-postprocessed-observed-water_S2A_45RYJ_20221205_0_L2A-10-v1.0.0.tif</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>3.10 DaFab property blocks</h3>
+<p>Show the DaFab-specific metadata blocks preserved by PySTAC as extension/custom fields.</p></section><section class="cell code-cell"><div class="prompt">In [53]</div><pre class="input"><code># PySTAC preserves namespaced DaFab fields even without typed extension helpers.
+domain_rows = []
+for href, item in representative_items_by_href.items():
+    properties = representative_item_json_by_href[href].get(&quot;properties&quot;, {})
+    for key, value in properties.items():
+        if key.startswith(&quot;dafab:&quot;):
+            domain_rows.append(
+                {
+                    &quot;item_id&quot;: item.id,
+                    &quot;domain_block&quot;: key,
+                    &quot;fields&quot;: list(value.keys()) if isinstance(value, dict) else type(value).__name__,
+                }
+            )
+rows_as_table(domain_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>item_id</th><th>domain_block</th><th>fields</th></tr></thead><tbody><tr><td>S2A_30TYN_20200311_1_L2A</td><td>dafab:field_boundaries</td><td>[&#x27;field_percentage&#x27;, &#x27;number_of_fields&#x27;, &#x27;total_field_area(ha)&#x27;, &#x27;max_area_of_fields(ha)&#x27;, &#x27;min_area_of_fields(ha)&#x27;, &#x27;mean_area_of_fields(ha)&#x27;, &#x27;field_percentage_tile_grid&#x27;]</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>dafab:smart-agriculture</td><td>[&#x27;field_percentage&#x27;, &#x27;number_of_fields&#x27;, &#x27;total_field_area(ha)&#x27;, &#x27;max_area_of_fields(ha)&#x27;, &#x27;min_area_of_fields(ha)&#x27;, &#x27;mean_area_of_fields(ha)&#x27;, &#x27;smart_agriculture_algorithm_version&#x27;]</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>dafab:water-analysis</td><td>[&#x27;deficit_water&#x27;, &#x27;observed_water&#x27;, &#x27;excess_total_water&#x27;, &#x27;difference_water_mask&#x27;, &#x27;deficit_water_observed&#x27;, &#x27;observed_water_visible&#x27;, &#x27;reference_seasonal_water&#x27;, &#x27;reference_permanent_water&#x27;, &#x27;excess_total_water_observed&#x27;, &#x27;excess_seasonal_water_observed&#x27;, &#x27;deficit_water_observed_area(km2)&#x27;, &#x27;reference_seasonal_water_visible&#x27;, &#x27;water_analysis_algorithm_version&#x27;, &#x27;reference_permanent_water_visible&#x27;, &#x27;trustworthiness_observed_water_mask&#x27;, &#x27;excess_total_water_observed_area(km2)&#x27;, &#x27;excess_water_observed_by_permanent_seasonal&#x27;]</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h2>4. Validation and serialization</h2>
+<h3>4.1 STAC validation</h3>
+<p>This validates the STAC JSON already fetched in the notebook: the root catalog, every discovered collection/catalog node, and the representative Items. Each row reports two checks:</p>
+<ul>
+<li><code>core_schema_errors</code>: local JSON-schema errors from PySTAC's <code>LocalValidator</code>, using the detected STAC object type.</li>
+<li><code>pystac_full_validation</code>: PySTAC's normal <code>validate_dict(...)</code>, including declared <code>stac_extensions</code> when their schemas are resolvable.</li>
+</ul>
+<p>This does not validate DaFab/Rucio publication policy, reachable asset bytes, or search/filter behavior; the notebook handles the DaFab-specific structural checks separately below.</p></section><section class="cell code-cell"><div class="prompt">In [54]</div><pre class="input"><code># Reuse the fetched documents so validation does not add another graph traversal.
+validation_docs = {href: raw_dict(obj) for href, obj in discovered_nodes_by_href.items()}
+validation_docs.update(representative_item_json_by_href)
+
+validation_rows = []
+for href, data in validation_docs.items():
+    object_type = identify_stac_object_type(data)
+    # Full validation checks core STAC plus each declared extension schema.
+    try:
+        validate_dict(
+            data,
+            stac_object_type=object_type,
+            stac_version=data.get(&quot;stac_version&quot;),
+            extensions=data.get(&quot;stac_extensions&quot;, []),
+            href=href,
+        )
+        full_validation = &quot;ok&quot;
+    except Exception as exc:
+        full_validation = f&quot;{type(exc).__name__}: {exc}&quot;
+
+    # Report bundled core-schema errors separately from full validation.
+    validation_rows.append(
+        {
+            &quot;id&quot;: data.get(&quot;id&quot;),
+            &quot;type&quot;: object_type.value if object_type else None,
+            &quot;core_schema_errors&quot;: len(core_schema_errors(data)),
+            &quot;pystac_full_validation&quot;: full_validation,
+        }
+    )
+rows_as_table(validation_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>type</th><th>core_schema_errors</th><th>pystac_full_validation</th></tr></thead><tbody><tr><td>stac</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>sentinel_2_l2a</td><td>Collection</td><td>0</td><td>ok</td></tr><tr><td>water_analysis</td><td>Collection</td><td>0</td><td>ok</td></tr><tr><td>water_anomaly</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_anomaly_flood</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_anomaly_drought</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_anomaly_normal</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_ganges</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_hybas_id_l6_2060010050</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_hybas_id_l3_2030016230</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_ebro</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_rhone</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_seine</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_garonne</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_elbe</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_po</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_dordogne</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_buzi</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_mekong</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_iso_vnm</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_chao_phraya</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_lam</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_red</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_ma</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_thu_bon</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_rhine</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_parana</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_niger</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_oder</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_brahmaputra</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_loire</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_great_salt_lake</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_murray</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_colorado_mrbid_4405</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_san_joaquin</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_sittang</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_chad</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_iso_zaf</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_olifants</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_iso_aus</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_weser</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_irrawaddy</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_jubba</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_brazos</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_titicaca</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>water_basin_sabine</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>smart_agriculture</td><td>Collection</td><td>0</td><td>ok</td></tr><tr><td>agriculture_season</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>agriculture_season_winter</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>agriculture_season_spring</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>agriculture_season_summer</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>agriculture_season_autumn</td><td>Catalog</td><td>0</td><td>ok</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>Feature</td><td>0</td><td>ok</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>Feature</td><td>0</td><td>ok</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>Feature</td><td>0</td><td>ok</td></tr></tbody></table>
+    </div></div></section><section class="cell markdown-cell"><h3>4.2 Lightweight DaFab profile constants</h3>
+<p>Define the DaFab-specific assumptions checked here: expected collections, which collections are derived products, and the structural rules that are not part of generic STAC schema validation.</p></section><section class="cell code-cell"><div class="prompt">In [55]</div><pre class="input"><code># Layer a small set of DaFab expectations on top of generic STAC validity.
+EXPECTED_COLLECTIONS = {&quot;sentinel_2_l2a&quot;, &quot;water_analysis&quot;, &quot;smart_agriculture&quot;}
+DERIVED_COLLECTIONS = {&quot;water_analysis&quot;, &quot;smart_agriculture&quot;}
+
+
+# Accumulate structured findings so all failed checks can be shown together.
+def add_finding(findings: list[dict], href: str, doc_id: str | None, check: str, detail: str) -&gt; None:
+    findings.append({&quot;href&quot;: href, &quot;id&quot;: doc_id, &quot;check&quot;: check, &quot;detail&quot;: detail})</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>4.3 Root and collection profile checks</h3>
+<p>These checks cover DaFab graph shape at the top of the tree: expected root children, root backlinks on collections, and facet-catalog children under derived collections.</p></section><section class="cell code-cell"><div class="prompt">In [56]</div><pre class="input"><code># Check the DaFab entry-point shape that core STAC intentionally leaves open.
+def root_and_collection_findings() -&gt; list[dict]:
+    findings = []
+    root_children = {collection.id for collection in collections}
+
+    for collection_id in sorted(EXPECTED_COLLECTIONS - root_children):
+        add_finding(findings, object_href(root), root.id, &quot;root child collection&quot;, f&quot;missing {collection_id}&quot;)
+
+    for collection in collections:
+        data = raw_dict(collection)
+        href = object_href(collection)
+        if collection.id not in EXPECTED_COLLECTIONS:
+            add_finding(findings, href, collection.id, &quot;collection id&quot;, f&quot;unexpected id {collection.id!r}&quot;)
+        if not link_rows(data, &quot;root&quot;):
+            add_finding(findings, href, collection.id, &quot;root link&quot;, &quot;missing root link&quot;)
+        # Derived collections expose products through facet catalog children.
+        if collection.id in DERIVED_COLLECTIONS and not link_rows(data, &quot;child&quot;):
+            add_finding(findings, href, collection.id, &quot;facet links&quot;, &quot;derived collection has no facet catalog children&quot;)
+
+    return findings</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>4.4 Item profile checks</h3>
+<p>These checks cover representative Item expectations: known collection ID, geometry and bbox, derived-product provenance, derived-product assets, observed facet membership, and related links from source Items.</p></section><section class="cell code-cell"><div class="prompt">In [57]</div><pre class="input"><code># Apply sampled DaFab publication expectations to the representative Items.
+def item_findings() -&gt; list[dict]:
+    findings = []
+    # Membership comes from downward Catalog-to-Item links found during traversal.
+    catalog_item_targets = {row[&quot;item_id&quot;] for row in item_link_rows}
+
+    for href, data in representative_item_json_by_href.items():
+        item_id = data.get(&quot;id&quot;)
+        collection = data.get(&quot;collection&quot;)
+        if collection not in EXPECTED_COLLECTIONS:
+            add_finding(findings, href, item_id, &quot;item collection&quot;, f&quot;unexpected collection {collection!r}&quot;)
+        if not data.get(&quot;geometry&quot;) or not data.get(&quot;bbox&quot;):
+            add_finding(findings, href, item_id, &quot;spatial fields&quot;, &quot;missing geometry or bbox&quot;)
+        # Derived products need source provenance, assets, and observed facet placement.
+        if collection in DERIVED_COLLECTIONS and not link_rows(data, &quot;derived_from&quot;):
+            add_finding(findings, href, item_id, &quot;provenance&quot;, &quot;derived item has no derived_from link&quot;)
+        if collection in DERIVED_COLLECTIONS and not data.get(&quot;assets&quot;):
+            add_finding(findings, href, item_id, &quot;assets&quot;, &quot;derived item has no assets&quot;)
+        if collection in DERIVED_COLLECTIONS and item_id not in catalog_item_targets:
+            add_finding(findings, href, item_id, &quot;facet membership&quot;, &quot;derived item is not linked by any fetched facet catalog&quot;)
+        # Source Items expose reverse provenance through related-product links.
+        if collection == &quot;sentinel_2_l2a&quot; and not link_rows(data, &quot;related&quot;):
+            add_finding(findings, href, item_id, &quot;provenance&quot;, &quot;source item has no related derived-item links&quot;)
+
+    return findings</code></pre><div class="outputs"></div></section><section class="cell markdown-cell"><h3>4.5 DaFab profile-check result</h3>
+<p>Display only findings from the lightweight DaFab profile checks; an empty result means the sampled live graph matched those checks.</p></section><section class="cell code-cell"><div class="prompt">In [58]</div><pre class="input"><code># An empty combined list means the sampled live graph passed this lightweight profile.
+profile_findings = [*root_and_collection_findings(), *item_findings()]
+if profile_findings:
+    rows_as_table(profile_findings)
+else:
+    print(&quot;No findings from the lightweight DaFab profile checks in this notebook.&quot;)</code></pre><div class="outputs"><pre class="stream">No findings from the lightweight DaFab profile checks in this notebook.</pre></div></section><section class="cell markdown-cell"><h3>4.6 Round-trip serialization</h3>
+<p>Confirm that fetched objects can be serialized back to dictionaries. <code>transform_hrefs=False</code> preserves DaFab's published absolute links exactly.</p></section><section class="cell code-cell"><div class="prompt">In [59]</div><pre class="input"><code># Exercise the same graph objects that were inspected and validated above.
+roundtrip_objects = {**discovered_nodes_by_href, **representative_items_by_href}
+roundtrip_rows = []
+for href, obj in roundtrip_objects.items():
+    # Explicit mode must preserve the absolute HREFs published by DaFab.
+    obj.to_dict(transform_hrefs=False)
+    # Test graph-aware default HREF transformation as a separate behavior.
+    try:
+        obj.to_dict()
+        default_status = &quot;ok&quot;
+    except Exception as exc:
+        default_status = f&quot;{type(exc).__name__}: {exc}&quot;
+    roundtrip_rows.append(
+        {
+            &quot;id&quot;: raw_dict(obj).get(&quot;id&quot;),
+            &quot;without_href_transform&quot;: &quot;ok&quot;,
+            &quot;default_to_dict&quot;: default_status,
+        }
+    )
+rows_as_table(roundtrip_rows)</code></pre><div class="outputs"><div class="output-html">
+    <style>
+      .dafab-table { border-collapse: collapse; font-size: 13px; }
+      .dafab-table th, .dafab-table td { border: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+      .dafab-table td { white-space: normal; overflow-wrap: anywhere; max-width: 900px; }
+      .dafab-table th { text-align: left; background: #f7f7f7; }
+    </style>
+    <table class="dafab-table"><thead><tr><th>id</th><th>without_href_transform</th><th>default_to_dict</th></tr></thead><tbody><tr><td>stac</td><td>ok</td><td>ok</td></tr><tr><td>sentinel_2_l2a</td><td>ok</td><td>ok</td></tr><tr><td>water_analysis</td><td>ok</td><td>ok</td></tr><tr><td>water_anomaly</td><td>ok</td><td>ok</td></tr><tr><td>water_anomaly_flood</td><td>ok</td><td>ok</td></tr><tr><td>water_anomaly_drought</td><td>ok</td><td>ok</td></tr><tr><td>water_anomaly_normal</td><td>ok</td><td>ok</td></tr><tr><td>water_basin</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_ganges</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_hybas_id_l6_2060010050</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_hybas_id_l3_2030016230</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_ebro</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_rhone</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_seine</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_garonne</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_elbe</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_po</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_dordogne</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_buzi</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_mekong</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_iso_vnm</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_chao_phraya</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_lam</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_red</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_ma</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_thu_bon</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_rhine</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_parana</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_niger</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_oder</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_brahmaputra</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_loire</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_great_salt_lake</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_murray</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_colorado_mrbid_4405</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_san_joaquin</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_sittang</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_chad</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_iso_zaf</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_olifants</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_iso_aus</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_weser</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_irrawaddy</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_jubba</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_brazos</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_titicaca</td><td>ok</td><td>ok</td></tr><tr><td>water_basin_sabine</td><td>ok</td><td>ok</td></tr><tr><td>smart_agriculture</td><td>ok</td><td>ok</td></tr><tr><td>agriculture_season</td><td>ok</td><td>ok</td></tr><tr><td>agriculture_season_winter</td><td>ok</td><td>ok</td></tr><tr><td>agriculture_season_spring</td><td>ok</td><td>ok</td></tr><tr><td>agriculture_season_summer</td><td>ok</td><td>ok</td></tr><tr><td>agriculture_season_autumn</td><td>ok</td><td>ok</td></tr><tr><td>S2A_30TYN_20200311_1_L2A</td><td>ok</td><td>ok</td></tr><tr><td>S2A_30TYN_20200311_1_L2A_smart_agriculture_120</td><td>ok</td><td>ok</td></tr><tr><td>S2A_45RYJ_20221205_0_L2A_water_analysis_100</td><td>ok</td><td>ok</td></tr></tbody></table>
+    </div></div></section>
+</body>
+</html>
