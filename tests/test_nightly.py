@@ -117,9 +117,23 @@ def test_summary_matrix_coverage_and_anomalies():
 
     kinds = {row["id"]: row["kinds"] for row in summary["anomalies"]}
     assert kinds == {"IMG2_water_analysis_300": ["assets"], "IMG3_water_analysis_200": ["schema"]}
-    assert summary["totals"] == {"items": 7, "valid": 6, "verified": 1, "anomalies": 2}
+    assert summary["totals"] == {"items": 7, "valid": 6, "verified": 1, "anomalies": 2, "surplus_items": 0, "surplus_bytes": 0}
     assert cells[("dafab", "water_analysis", "3.0.0")]["top_issues"] == [{"issue": "no available replica: x", "items": 1}]
     assert cells[("dafab", "water_analysis", "2.0.0")]["top_issues"] == [{"issue": "missing datetime", "items": 1}]
+
+
+def test_surplus_files_are_reported_apart_from_completeness():
+    item = {"id": "IMG", "hash": "h", "version": None, "assets": ["B02_10m"], "audited_at": "t", "valid": True, "schema_issues": [], "changed": False,
+            "inventory_at": "t", "attached": 3, "available": 3, "inventory_issues": [],
+            "surplus": 2, "surplus_bytes": 700_000_000, "surplus_issues": ["attached but declared with an external href: AOT_10m", "attached but not declared: WVP_10m.jp2"]}
+    units = {"sentinel_2_l2a": {"scope": "dafab", "collection": "sentinel_2_l2a", "kind": "original", "items": [item]}}
+    summary = nightly.summarise(units, "2026-09-30T02:00:00Z")
+    cell = summary["matrix"][0]
+    assert cell["assets_complete"] == 1 and cell["anomalies"] == 0
+    assert cell["surplus_items"] == 1 and cell["surplus_bytes"] == 700_000_000
+    assert summary["totals"]["anomalies"] == 0 and summary["totals"]["surplus_items"] == 1
+    assert summary["anomalies"][0]["kinds"] == ["surplus"] and summary["anomalies"][0]["surplus_bytes"] == 700_000_000
+    assert [t["issue"] for t in cell["top_issues"]] == ["attached but declared with an external href: AOT_10m", "attached but not declared: WVP_10m.jp2"]
 
 
 def test_history_replaces_the_same_day_and_caps_the_length():

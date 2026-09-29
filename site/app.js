@@ -38,11 +38,13 @@
     node.appendChild(head); node.appendChild(body);
   }
 
+  function gb(bytes) { return bytes ? (bytes / 1e9).toFixed(bytes >= 1e11 ? 0 : 1) + " GB" : "0 GB"; }
   function renderTotals(summary) {
     var totals = summary.totals;
     var box = document.getElementById("totals"); box.textContent = "";
-    [["items audited", totals.items], ["valid documents", totals.valid], ["byte-verified so far", totals.verified], ["items with an anomaly", totals.anomalies]]
-      .forEach(function (pair) { box.appendChild(el("div", { class: "total" }, [el("b", { text: num(pair[1]) }), el("span", { text: pair[0] })])); });
+    [["items audited", num(totals.items)], ["valid documents", num(totals.valid)], ["byte-verified so far", num(totals.verified)],
+     ["items with a problem", num(totals.anomalies)], ["surplus files in storage", gb(totals.surplus_bytes) + " on " + num(totals.surplus_items) + " items"]]
+      .forEach(function (pair) { box.appendChild(el("div", { class: "total" }, [el("b", { text: pair[1] }), el("span", { text: pair[0] })])); });
   }
 
   function renderMatrix(summary) {
@@ -55,10 +57,11 @@
         el("td", {}, [ratio(cell.available, cell.inventoried)]),
         el("td", { class: "num", text: num(cell.verified) + (cell.verify_failed ? " (" + cell.verify_failed + " failed)" : "") }),
         el("td", { class: "num", text: num(cell.changed) }),
-        el("td", {}, [pill(num(cell.anomalies), cell.anomalies ? "bad" : "good")])
+        el("td", {}, [pill(num(cell.anomalies), cell.anomalies ? "bad" : "good")]),
+        el("td", {}, [cell.surplus_items ? pill(num(cell.surplus_items) + " items · " + gb(cell.surplus_bytes), "warn") : pill("none", "good")])
       ]);
     });
-    table(document.getElementById("matrix"), ["scope", "collection", "version", "items", "valid", "assets complete / inventoried", "in storage / inventoried", "byte-verified", "changed tonight", "anomalies"], rows);
+    table(document.getElementById("matrix"), ["scope", "collection", "version", "items", "valid", "assets complete / inventoried", "in storage / inventoried", "byte-verified", "changed tonight", "problems", "surplus files"], rows);
     var findings = summary.matrix.filter(function (cell) { return cell.top_issues && cell.top_issues.length; }).map(function (cell) {
       return el("tr", {}, [
         el("td", { text: cell.scope + " · " + cell.collection + " · " + cell.version }),
@@ -91,8 +94,9 @@
     var kind = document.getElementById("filter-kind").value;
     var id = document.getElementById("filter-id").value.trim().toLowerCase();
     return state.summary.anomalies.filter(function (row) {
+      var kindOk = kind === "problems" ? row.kinds.some(function (k) { return k !== "surplus"; }) : (!kind || row.kinds.indexOf(kind) >= 0);
       return (!scope || row.scope === scope) && (!collection || row.collection === collection)
-        && (!kind || row.kinds.indexOf(kind) >= 0) && (!id || row.id.toLowerCase().indexOf(id) >= 0);
+        && kindOk && (!id || row.id.toLowerCase().indexOf(id) >= 0);
     });
   }
   function renderAnomalies(reset) {
@@ -104,8 +108,8 @@
       return el("tr", {}, [
         el("td", { text: row.scope }), el("td", { text: row.collection }), el("td", { text: row.version }),
         itemLinks(row, links),
-        el("td", {}, row.kinds.map(function (kind) { return pill(kind, kind === "bytes" ? "bad" : "warn"); })),
-        el("td", { class: "issues", text: row.issues.join("; ") })
+        el("td", {}, row.kinds.map(function (kind) { return pill(kind, kind === "bytes" ? "bad" : (kind === "surplus" ? "muted" : "warn")); })),
+        el("td", { class: "issues", text: row.issues.join("; ") + (row.surplus_bytes ? " (" + gb(row.surplus_bytes) + ")" : "") })
       ]);
     });
     if (!body.length) body = [el("tr", {}, [el("td", { text: "no anomalies match" })])];

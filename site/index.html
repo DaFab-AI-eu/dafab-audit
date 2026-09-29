@@ -25,7 +25,7 @@
   <section aria-labelledby="matrix-title">
     <h2 id="matrix-title">Scopes, collections and versions</h2>
     <div class="table-wrap"><table id="matrix"></table></div>
-    <p class="note">Inventoried and verified counts include results carried over from earlier nights for items whose document has not changed since. A version is the processing version recorded in the document, or the id suffix for items without one. Assets whose files live outside the catalogue, such as the full Copernicus product links kept on a Sentinel-2 item, are counted as external and not verified.</p>
+    <p class="note">Inventoried and verified counts include results carried over from earlier nights for items whose document has not changed since. A version is the processing version recorded in the document, or the id suffix for items without one. Assets whose files live outside the catalogue, such as the full Copernicus product links kept on a Sentinel-2 item, are counted as external and not verified. Surplus files are attached to an item in the catalogue but declared by no asset with a catalogue link, so nobody can reach them; they do not make an item incomplete, they cost storage.</p>
     <div class="table-wrap" style="margin-top: 14px" hidden><table id="findings"></table></div>
   </section>
 
@@ -40,7 +40,7 @@
     <div class="controls">
       <label>Scope <select id="filter-scope"><option value="">all</option></select></label>
       <label>Collection <select id="filter-collection"><option value="">all</option></select></label>
-      <label>Kind <select id="filter-kind"><option value="">all</option><option value="schema">schema</option><option value="assets">assets</option><option value="bytes">bytes</option></select></label>
+      <label>Kind <select id="filter-kind"><option value="problems">problems</option><option value="">all, surplus included</option><option value="schema">schema</option><option value="assets">assets</option><option value="bytes">bytes</option><option value="surplus">surplus</option></select></label>
       <label>Item <input id="filter-id" type="search" placeholder="part of an id"></label>
       <span id="anomaly-count" class="count"></span>
     </div>

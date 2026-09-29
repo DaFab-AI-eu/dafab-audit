@@ -149,7 +149,8 @@ def merge_previous(record: dict[str, Any], previous: dict[str, Any] | None) -> d
     record["changed"] = False
     record["first_seen"] = previous.get("first_seen") or record["audited_at"]
     record["changed_at"] = previous.get("changed_at")
-    for key in ("inventory_at", "attached", "available", "undeclared", "inventory_issues", "verified_at", "verify_ok", "verified_bytes", "verify_issues"):
+    for key in ("inventory_at", "attached", "available", "inventory_issues", "surplus", "surplus_bytes", "surplus_issues",
+                "verified_at", "verify_ok", "verified_bytes", "verify_issues"):
         if key in previous and key not in record:
             record[key] = previous[key]
     return record
@@ -170,12 +171,17 @@ def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, 
             cell = cells.setdefault((scope, collection, version), {
                 "scope": scope, "collection": collection, "version": version, "unit": unit_name,
                 "items": 0, "valid": 0, "assets_complete": 0, "inventoried": 0, "available": 0,
-                "verified": 0, "verify_failed": 0, "changed": 0, "anomalies": 0, "external_assets": 0, "issue_counts": {},
+                "verified": 0, "verify_failed": 0, "changed": 0, "anomalies": 0, "external_assets": 0,
+                "surplus_items": 0, "surplus_bytes": 0, "issue_counts": {},
             })
             cell["items"] += 1
             cell["external_assets"] += int(record.get("external_assets") or 0)
+            surplus_issues = list(record.get("surplus_issues") or [])
+            if record.get("surplus"):
+                cell["surplus_items"] += 1
+                cell["surplus_bytes"] += int(record.get("surplus_bytes") or 0)
             issues = list(record.get("schema_issues") or []) + list(record.get("inventory_issues") or []) + list(record.get("verify_issues") or [])
-            for issue in set(issues):
+            for issue in set(issues + [i for i in surplus_issues if not i.startswith("and ")]):
                 cell["issue_counts"][issue] = cell["issue_counts"].get(issue, 0) + 1
             if record.get("valid"):
                 cell["valid"] += 1
@@ -191,14 +197,17 @@ def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, 
                 cell["verified"] += 1
                 if record.get("verify_ok") is False:
                     cell["verify_failed"] += 1
-            if issues:
-                cell["anomalies"] += 1
+            if issues or surplus_issues:
+                if issues:
+                    cell["anomalies"] += 1
                 anomalies.append({
                     "scope": scope, "collection": collection, "version": version, "id": record["id"],
                     "kinds": sorted({kind for kind, present in (
-                        ("schema", record.get("schema_issues")), ("assets", record.get("inventory_issues")), ("bytes", record.get("verify_issues")),
+                        ("schema", record.get("schema_issues")), ("assets", record.get("inventory_issues")),
+                        ("bytes", record.get("verify_issues")), ("surplus", surplus_issues),
                     ) if present}),
-                    "issues": issues[:6],
+                    "issues": (issues + surplus_issues)[:6],
+                    "surplus_bytes": int(record.get("surplus_bytes") or 0),
                     "audited_at": record.get("audited_at"),
                 })
             if collection == "sentinel_2_l2a":
@@ -234,7 +243,9 @@ def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, 
             "items": sum(cell["items"] for cell in matrix),
             "valid": sum(cell["valid"] for cell in matrix),
             "verified": sum(cell["verified"] for cell in matrix),
-            "anomalies": len(anomalies),
+            "anomalies": sum(cell["anomalies"] for cell in matrix),
+            "surplus_items": sum(cell["surplus_items"] for cell in matrix),
+            "surplus_bytes": sum(cell["surplus_bytes"] for cell in matrix),
         },
     }
 
@@ -243,7 +254,7 @@ def append_history(history: list[dict[str, Any]], summary: dict[str, Any], limit
     entry = {
         "generated_at": summary["generated_at"],
         "totals": summary["totals"],
-        "cells": [{k: cell[k] for k in ("scope", "collection", "version", "items", "valid", "verified", "anomalies")} for cell in summary["matrix"]],
+        "cells": [{k: cell.get(k) for k in ("scope", "collection", "version", "items", "valid", "verified", "anomalies", "surplus_items", "surplus_bytes")} for cell in summary["matrix"]],
     }
     day = summary["generated_at"][:10]
     kept = [row for row in history if str(row.get("generated_at", ""))[:10] != day]
@@ -374,7 +385,7 @@ def inventory(client, scope: str, record: dict[str, Any]) -> None:
     try:
         files = list(client.list_content(scope, f"{item_id}_assets"))
     except Exception as exc:  # noqa: BLE001
-        record.update({"inventory_at": utc_now(), "attached": 0, "available": 0, "undeclared": 0,
+        record.update({"inventory_at": utc_now(), "attached": 0, "available": 0, "surplus": 0, "surplus_bytes": 0, "surplus_issues": [],
                        "inventory_issues": [f"assets dataset unreadable: {type(exc).__name__}"]})
         return
     names = [row["name"] for row in files if row.get("type") == "FILE"]
@@ -386,14 +397,19 @@ def inventory(client, scope: str, record: dict[str, Any]) -> None:
             issues.append(f"asset not attached: {key}")
         else:
             resolved[key] = file_name
-    undeclared = sorted(set(names) - set(resolved.values()))
+    # Files attached beyond the declared assets are not a completeness problem, the contract
+    # holds, but they are storage nobody can reach through the catalogue, so they are reported apart.
+    surplus_names = sorted(set(names) - set(resolved.values()))
     external_keys = record.get("external_keys") or []
-    for name in undeclared[:5]:
+    surplus_issues: list[str] = []
+    for name in surplus_names[:5]:
         as_external = next((key for key in external_keys if attached_file_for(item_id, key, [name]) == name), None)
         if as_external:
-            issues.append(f"attached but declared with an external href: {as_external}")
+            surplus_issues.append(f"attached but declared with an external href: {as_external}")
         else:
-            issues.append(f"attached but not declared: {name[len(item_id) + 1:]}")
+            surplus_issues.append(f"attached but not declared: {name[len(item_id) + 1:]}")
+    if len(surplus_names) > 5:
+        surplus_issues.append(f"and {len(surplus_names) - 5} more surplus files")
     available = 0
     if names:
         try:
@@ -408,8 +424,10 @@ def inventory(client, scope: str, record: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             issues.append(f"replica lookup failed: {type(exc).__name__}")
     record.update({
-        "inventory_at": utc_now(), "attached": len(names), "available": available, "undeclared": len(undeclared),
+        "inventory_at": utc_now(), "attached": len(names), "available": available,
         "inventory_issues": issues[:8],
+        "surplus": len(surplus_names), "surplus_bytes": sum(int(by_name[name].get("bytes") or 0) for name in surplus_names),
+        "surplus_issues": surplus_issues,
         "_files": {key: {"name": name, "bytes": by_name[name].get("bytes"), "adler32": by_name[name].get("adler32")} for key, name in resolved.items()},
     })
 
@@ -491,7 +509,8 @@ def collect(args: argparse.Namespace, log=print) -> Path:
         to_inventory = records
     else:
         rotating = [r for r in records if rotation_selected(r["id"], args.inventory_days, day_index)]
-        to_inventory = {r["id"]: r for r in [*changed, *sample, *rotating]}.values()
+        outdated = [r for r in records if r.get("inventory_at") and "surplus" not in r]  # state written by an older collector
+        to_inventory = {r["id"]: r for r in [*changed, *sample, *rotating, *outdated]}.values()
     to_inventory = list(to_inventory)
 
     from dafab_client._rucio.dafab_lib import connection_manager
