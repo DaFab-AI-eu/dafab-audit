@@ -139,21 +139,125 @@ def structural_issues(document: dict[str, Any]) -> list[str]:
     return issues
 
 
+INVENTORY_KEYS = ("inventory_at", "attached", "available", "inventory_issues", "surplus", "surplus_bytes", "surplus_issues")
+VERIFICATION_KEYS = ("verified_at", "verify_ok", "verified_bytes", "verify_issues")
+
+
+def assets_signature(document: dict[str, Any], managed: Iterable[str]) -> str:
+    """Fingerprint of what a byte check covers, the managed assets with their href, size and checksum.
+
+    Metadata elsewhere in the document, a geometry synchronised from the source image for
+    instance, leaves it unchanged."""
+    assets = document.get("assets") or {}
+    declared = [[key, *((assets.get(key) or {}).get(field) for field in ("href", "file:size", "file:checksum"))] for key in sorted(managed)]
+    return hashlib.sha256(json.dumps(declared, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+
+def files_signature(files: dict[str, dict[str, Any]]) -> str:
+    """Fingerprint of the files the inventory resolved, their names, sizes and recorded checksums."""
+    resolved = sorted([key, meta.get("name"), meta.get("bytes"), meta.get("adler32")] for key, meta in files.items())
+    return hashlib.sha256(json.dumps(resolved, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+
 def merge_previous(record: dict[str, Any], previous: dict[str, Any] | None) -> dict[str, Any]:
-    """Carry forward what an earlier night established for an unchanged item."""
-    if not previous or previous.get("hash") != record["hash"]:
-        record["changed"] = previous is not None
-        record["first_seen"] = previous.get("first_seen") if previous else record["audited_at"]
-        record["changed_at"] = record["audited_at"] if previous else None
+    """Carry forward what an earlier night established.
+
+    The inventory carries over while the document is unchanged; a changed item is inventoried
+    again tonight. The byte check carries over while the managed assets are unchanged, so a
+    metadata edit does not send the item back for a download. A state written before assets
+    were fingerprinted counts any document change as an asset change."""
+    if not previous:
+        record.update({"changed": False, "first_seen": record["audited_at"], "changed_at": None, "assets_changed_at": None})
         return record
-    record["changed"] = False
+    same_document = previous.get("hash") == record["hash"]
+    if previous.get("assets_signature"):
+        same_assets = previous["assets_signature"] == record.get("assets_signature")
+    else:
+        same_assets = same_document
+    record["changed"] = not same_document
     record["first_seen"] = previous.get("first_seen") or record["audited_at"]
-    record["changed_at"] = previous.get("changed_at")
-    for key in ("inventory_at", "attached", "available", "inventory_issues", "surplus", "surplus_bytes", "surplus_issues",
-                "verified_at", "verify_ok", "verified_bytes", "verify_issues"):
+    record["changed_at"] = previous.get("changed_at") if same_document else record["audited_at"]
+    record["assets_changed_at"] = previous.get("assets_changed_at") if same_assets else record["audited_at"]
+    carried = ["files_signature"]
+    if same_document:
+        carried += INVENTORY_KEYS
+    if same_assets:
+        carried += VERIFICATION_KEYS
+    for key in carried:
         if key in previous and key not in record:
             record[key] = previous[key]
     return record
+
+
+def note_file_changes(record: dict[str, Any], audited_at: str) -> None:
+    """Compare the files tonight's inventory resolved with the last known ones.
+
+    A replaced file, same name with another size or checksum, sends the item back for a byte
+    check even when its document did not change. The first fingerprint is adopted silently."""
+    files = record.get("_files")
+    if files is None:
+        return
+    signature = files_signature(files)
+    known = record.get("files_signature")
+    if known and known != signature:
+        record["assets_changed_at"] = audited_at
+        for key in VERIFICATION_KEYS:
+            record.pop(key, None)
+    record["files_signature"] = signature
+
+
+def unit_baseline(unit: dict[str, Any]) -> str:
+    """The unit's first audited night. Items first seen then are the initial catalogue."""
+    return unit.get("baseline") or min((row["first_seen"] for row in unit.get("items", []) if row.get("first_seen")), default="")
+
+
+def verification_due(record: dict[str, Any], baseline: str) -> str | None:
+    """Since when the item's bytes wait for a check, or None when a check already covers them.
+
+    An item waits from the last change of its managed assets or their files, from its first
+    appearance when it was published after the baseline night, or from its last failed check,
+    which is retried. Items of the initial catalogue whose assets never changed are left to
+    the random sample."""
+    verified = record.get("verified_at")
+    if verified and record.get("verify_ok") is False:
+        return verified
+    since = record.get("assets_changed_at")
+    if not since and (record.get("first_seen") or "") > baseline:
+        since = record["first_seen"]
+    if since and (not verified or verified < since):
+        return since
+    return None
+
+
+def expected_bytes(record: dict[str, Any]) -> int:
+    return sum(int(meta.get("bytes") or 0) for meta in (record.get("_files") or {}).values())
+
+
+def select_for_verification(waiting: list[dict[str, Any]], sample: list[dict[str, Any]], max_items: int, max_bytes: int) -> list[dict[str, Any]]:
+    """Waiting items first, oldest first, while the random sample keeps up to half of the items
+    and bytes so that unchanged items are still checked every night. The first pick is always
+    taken, so a unit whose items all exceed the budget still verifies one item per night."""
+    sample = [r for r in sample if r.get("_files")]
+    sampled = {r["id"] for r in sample}
+    waiting = [r for r in waiting if r.get("_files") and r["id"] not in sampled]
+    reserve_items = min(len(sample), max_items // 2)
+    reserve_bytes = min(sum(expected_bytes(r) for r in sample), max_bytes // 2)
+    chosen: list[dict[str, Any]] = []
+
+    def take(pool: list[dict[str, Any]], limit: int, budget: int) -> int:
+        for record in pool:
+            if len(chosen) >= limit:
+                break
+            size = expected_bytes(record)
+            if chosen and size > budget:
+                continue
+            chosen.append(record)
+            budget -= size
+        return budget
+
+    left = take(waiting, max_items - reserve_items, max_bytes - reserve_bytes)
+    take(sample, max_items, left + reserve_bytes)
+    return chosen
 
 
 def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, Any]:
@@ -166,14 +270,17 @@ def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, 
     for unit_name, unit in units.items():
         scope = unit["scope"]
         collection = unit.get("collection") or scope
+        baseline = unit_baseline(unit)
         for record in unit.get("items", []):
             version = record.get("version") or "unversioned"
             cell = cells.setdefault((scope, collection, version), {
                 "scope": scope, "collection": collection, "version": version, "unit": unit_name,
                 "items": 0, "valid": 0, "assets_complete": 0, "inventoried": 0, "available": 0,
-                "verified": 0, "verify_failed": 0, "changed": 0, "anomalies": 0, "external_assets": 0,
+                "verified": 0, "verify_failed": 0, "verify_waiting": 0, "changed": 0, "anomalies": 0, "external_assets": 0,
                 "surplus_items": 0, "surplus_bytes": 0, "issue_counts": {},
             })
+            if verification_due(record, baseline):
+                cell["verify_waiting"] += 1
             cell["items"] += 1
             cell["external_assets"] += int(record.get("external_assets") or 0)
             surplus_issues = list(record.get("surplus_issues") or [])
@@ -243,6 +350,7 @@ def summarise(units: dict[str, dict[str, Any]], generated_at: str) -> dict[str, 
             "items": sum(cell["items"] for cell in matrix),
             "valid": sum(cell["valid"] for cell in matrix),
             "verified": sum(cell["verified"] for cell in matrix),
+            "verify_waiting": sum(cell["verify_waiting"] for cell in matrix),
             "anomalies": sum(cell["anomalies"] for cell in matrix),
             "surplus_items": sum(cell["surplus_items"] for cell in matrix),
             "surplus_bytes": sum(cell["surplus_bytes"] for cell in matrix),
@@ -493,7 +601,8 @@ def collect(args: argparse.Namespace, log=print) -> Path:
         for document in documents:
             managed, external = managed_asset_keys(document, args.stac_root)
             record = {
-                "id": document["id"], "hash": document_hash(document), "version": processing_version(document),
+                "id": document["id"], "hash": document_hash(document), "assets_signature": assets_signature(document, managed),
+                "version": processing_version(document),
                 "datetime": (document.get("properties") or {}).get("datetime"), "assets": managed,
                 "external_assets": len(external), "external_keys": external, "audited_at": audited_at,
             }
@@ -503,6 +612,13 @@ def collect(args: argparse.Namespace, log=print) -> Path:
     changed = [r for r in records if r["changed"] or r.get("first_seen") == audited_at]
     log(f"[{args.unit}] validated in {time.monotonic() - started:.0f}s; invalid: {sum(1 for r in records if not r['valid'])}; changed or new: {len(changed)}")
 
+    # Items whose managed assets changed, and newly published items, wait for a byte check until
+    # one covers them, across nights, so a change that misses one night's budget is checked later.
+    baseline = unit_baseline(previous or {}) or audited_at
+    waiting = sorted((r for r in records if verification_due(r, baseline)), key=lambda r: (verification_due(r, baseline), r["id"]))
+    waiting_head = waiting[: args.verify_max_items] if args.verify == "changed" else []
+    log(f"[{args.unit}] waiting for a byte check: {len(waiting)}")
+
     rng = random.Random(f"{args.unit}:{dt.date.today().isoformat()}")
     sample = rng.sample(records, min(args.sample, len(records))) if records else []
     if args.inventory == "all":
@@ -510,7 +626,7 @@ def collect(args: argparse.Namespace, log=print) -> Path:
     else:
         rotating = [r for r in records if rotation_selected(r["id"], args.inventory_days, day_index)]
         outdated = [r for r in records if r.get("inventory_at") and "surplus" not in r]  # state written by an older collector
-        to_inventory = {r["id"]: r for r in [*changed, *sample, *rotating, *outdated]}.values()
+        to_inventory = {r["id"]: r for r in [*changed, *waiting_head, *sample, *rotating, *outdated]}.values()
     to_inventory = list(to_inventory)
 
     from dafab_client._rucio.dafab_lib import connection_manager
@@ -518,6 +634,9 @@ def collect(args: argparse.Namespace, log=print) -> Path:
     client = connection_manager()
     with ThreadPoolExecutor(max_workers=args.threads) as pool:
         list(pool.map(lambda record: inventory(client, scope, record), to_inventory))
+    for record in to_inventory:
+        note_file_changes(record, audited_at)
+    waiting = sorted((r for r in records if verification_due(r, baseline)), key=lambda r: (verification_due(r, baseline), r["id"]))
     log(f"[{args.unit}] inventoried {len(to_inventory)} items in {time.monotonic() - started:.0f}s")
 
     if args.verify == "all":
@@ -525,27 +644,22 @@ def collect(args: argparse.Namespace, log=print) -> Path:
     elif args.verify == "none":
         to_verify = []
     else:
-        candidates = list({r["id"]: r for r in [*sample, *changed] if r.get("_files")}.values())[: args.verify_max_items]
-        to_verify, budget = [], args.verify_max_bytes
-        for record in candidates:
-            expected = sum(int(meta.get("bytes") or 0) for meta in record["_files"].values())
-            if to_verify and expected > budget:
-                continue
-            to_verify.append(record)
-            budget -= expected
+        to_verify = select_for_verification(waiting, sample, args.verify_max_items, args.verify_max_bytes)
     with ThreadPoolExecutor(max_workers=max(1, args.threads // 2)) as pool:
         list(pool.map(lambda record: verify_bytes(http, args.stac_root, scope, record), to_verify))
-    log(f"[{args.unit}] byte-verified {len(to_verify)} items ({sum(r.get('verified_bytes', 0) for r in to_verify) // 2**20} MiB) in {time.monotonic() - started:.0f}s; failures: {sum(1 for r in to_verify if r.get('verify_ok') is False)}")
+    still_waiting = sum(1 for r in records if verification_due(r, baseline))
+    log(f"[{args.unit}] byte-verified {len(to_verify)} items ({sum(r.get('verified_bytes', 0) for r in to_verify) // 2**20} MiB) in {time.monotonic() - started:.0f}s; failures: {sum(1 for r in to_verify if r.get('verify_ok') is False)}; still waiting: {still_waiting}")
 
     for record in records:
         record.pop("_files", None)
     state = {
         "schema_version": STATE_SCHEMA_VERSION, "unit": args.unit, "scope": scope, "collection": collection, "kind": kind,
-        "generated_at": audited_at,
+        "generated_at": audited_at, "baseline": baseline,
         "settings": {"inventory": args.inventory, "inventory_days": args.inventory_days, "verify": args.verify, "sample": args.sample, "limit": args.limit},
         "counts": {
             "items": len(records), "valid": sum(1 for r in records if r["valid"]), "changed": len(changed),
-            "inventoried": len(to_inventory), "verified": len(to_verify), "seconds": round(time.monotonic() - started),
+            "inventoried": len(to_inventory), "verified": len(to_verify), "verify_waiting": still_waiting,
+            "seconds": round(time.monotonic() - started),
         },
         "items": records,
     }

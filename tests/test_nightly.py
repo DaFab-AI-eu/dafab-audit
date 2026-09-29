@@ -117,7 +117,7 @@ def test_summary_matrix_coverage_and_anomalies():
 
     kinds = {row["id"]: row["kinds"] for row in summary["anomalies"]}
     assert kinds == {"IMG2_water_analysis_300": ["assets"], "IMG3_water_analysis_200": ["schema"]}
-    assert summary["totals"] == {"items": 7, "valid": 6, "verified": 1, "anomalies": 2, "surplus_items": 0, "surplus_bytes": 0}
+    assert summary["totals"] == {"items": 7, "valid": 6, "verified": 1, "verify_waiting": 0, "anomalies": 2, "surplus_items": 0, "surplus_bytes": 0}
     assert cells[("dafab", "water_analysis", "3.0.0")]["top_issues"] == [{"issue": "no available replica: x", "items": 1}]
     assert cells[("dafab", "water_analysis", "2.0.0")]["top_issues"] == [{"issue": "missing datetime", "items": 1}]
 
@@ -164,3 +164,132 @@ def test_publish_writes_the_site_from_unit_files(tmp_path):
     summary = json.loads((site / "data" / "summary.json").read_text())
     assert summary["totals"]["items"] == 1 and (site / "data" / "units" / "gfm.json").exists() and (site / ".nojekyll").exists()
     assert json.loads((site / "data" / "history.json").read_text())[-1]["totals"]["items"] == 1
+
+
+BASELINE = "2026-09-29T03:00:00Z"
+
+
+def test_asset_changes_new_items_and_failed_checks_wait_for_a_byte_check():
+    initial = {"id": "A", "first_seen": BASELINE, "assets_changed_at": None}
+    assert nightly.verification_due(initial, BASELINE) is None
+    assert nightly.verification_due({**initial, "changed_at": "2026-09-29T16:00:00Z"}, BASELINE) is None  # metadata only
+    changed = {"id": "B", "first_seen": BASELINE, "assets_changed_at": "2026-09-29T16:00:00Z"}
+    assert nightly.verification_due(changed, BASELINE) == "2026-09-29T16:00:00Z"
+    assert nightly.verification_due({**changed, "verified_at": "2026-09-29T16:20:00Z", "verify_ok": True}, BASELINE) is None
+    assert nightly.verification_due({**changed, "verified_at": "2026-09-29T10:00:00Z", "verify_ok": True}, BASELINE) == "2026-09-29T16:00:00Z"
+    published_later = {"id": "C", "first_seen": "2026-09-30T02:30:00Z", "assets_changed_at": None}
+    assert nightly.verification_due(published_later, BASELINE) == "2026-09-30T02:30:00Z"
+    failed = {**initial, "verified_at": "2026-09-30T02:40:00Z", "verify_ok": False}
+    assert nightly.verification_due(failed, BASELINE) == "2026-09-30T02:40:00Z"
+
+
+def test_assets_signature_follows_the_managed_assets_only():
+    base = document("X", assets=("a", "b"))
+    moved = {**base, "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]]}, "bbox": [0, 0, 2, 2]}
+    assert nightly.assets_signature(moved, ["a", "b"]) == nightly.assets_signature(base, ["b", "a"])
+    resized = {**base, "assets": {**base["assets"], "a": {**base["assets"]["a"], "file:size": 5}}}
+    assert nightly.assets_signature(resized, ["a", "b"]) != nightly.assets_signature(base, ["a", "b"])
+    assert nightly.assets_signature(base, ["a"]) != nightly.assets_signature(base, ["a", "b"])
+
+
+def test_a_metadata_only_change_keeps_the_byte_check():
+    previous = {"id": "X", "hash": "h1", "assets_signature": "s1", "files_signature": "f1", "first_seen": BASELINE,
+                "assets_changed_at": None, "inventory_at": "2026-09-29T04:00:00Z", "verified_at": "2026-09-29T04:10:00Z", "verify_ok": True}
+    record = nightly.merge_previous({"id": "X", "hash": "h2", "assets_signature": "s1", "audited_at": "2026-09-29T16:00:00Z"}, previous)
+    assert record["changed"] is True and record["changed_at"] == "2026-09-29T16:00:00Z"
+    assert record["verified_at"] == "2026-09-29T04:10:00Z" and record["files_signature"] == "f1" and "inventory_at" not in record
+    assert nightly.verification_due(record, BASELINE) is None
+
+
+def test_a_changed_asset_declaration_waits_across_nights_until_checked():
+    previous = {"id": "X", "hash": "h1", "assets_signature": "s1", "first_seen": BASELINE, "verified_at": "2026-09-29T04:10:00Z", "verify_ok": True}
+    night1 = nightly.merge_previous({"id": "X", "hash": "h2", "assets_signature": "s2", "audited_at": "2026-09-29T16:00:00Z"}, previous)
+    assert night1["assets_changed_at"] == "2026-09-29T16:00:00Z" and "verified_at" not in night1
+    night2 = nightly.merge_previous({"id": "X", "hash": "h2", "assets_signature": "s2", "audited_at": "2026-09-30T02:30:00Z"}, night1)
+    assert night2["changed"] is False and nightly.verification_due(night2, BASELINE) == "2026-09-29T16:00:00Z"
+    night2["verified_at"], night2["verify_ok"] = "2026-09-30T02:50:00Z", True
+    night3 = nightly.merge_previous({"id": "X", "hash": "h2", "assets_signature": "s2", "audited_at": "2026-10-01T02:30:00Z"}, night2)
+    assert nightly.verification_due(night3, BASELINE) is None
+
+
+def test_a_state_without_fingerprints_is_adopted_without_queueing_unchanged_items():
+    previous = {"id": "X", "hash": "h1", "first_seen": BASELINE, "changed_at": "2026-09-29T16:00:00Z", "verified_at": None}
+    same = nightly.merge_previous({"id": "X", "hash": "h1", "assets_signature": "s1", "audited_at": "2026-09-30T02:30:00Z"}, previous)
+    assert same["assets_changed_at"] is None and nightly.verification_due(same, BASELINE) is None
+    edited = nightly.merge_previous({"id": "X", "hash": "h2", "assets_signature": "s1", "audited_at": "2026-09-30T02:30:00Z"}, previous)
+    assert edited["assets_changed_at"] == "2026-09-30T02:30:00Z"
+
+
+def test_replaced_files_found_by_the_inventory_wait_for_a_byte_check():
+    audited = "2026-09-30T02:30:00Z"
+    first = {"id": "X", "_files": {"a": {"name": "X_a.tif", "bytes": 10, "adler32": "00000001"}}}
+    nightly.note_file_changes(first, audited)
+    assert first["files_signature"] and first.get("assets_changed_at") is None
+    replaced = {"id": "X", "files_signature": first["files_signature"], "verified_at": "2026-09-29T04:10:00Z", "verify_ok": True,
+                "_files": {"a": {"name": "X_a.tif", "bytes": 10, "adler32": "00000002"}}}
+    nightly.note_file_changes(replaced, audited)
+    assert replaced["assets_changed_at"] == audited and "verified_at" not in replaced
+    assert nightly.verification_due(replaced, BASELINE) == audited
+    untouched = {"id": "X", "files_signature": first["files_signature"], "_files": first["_files"], "verified_at": "2026-09-29T04:10:00Z", "verify_ok": True}
+    nightly.note_file_changes(untouched, audited)
+    assert untouched["verified_at"] == "2026-09-29T04:10:00Z" and "assets_changed_at" not in untouched
+
+
+def test_unit_baseline_prefers_the_stored_night_and_falls_back_to_the_earliest_item():
+    assert nightly.unit_baseline({"baseline": BASELINE, "items": [{"first_seen": "2026-01-01T00:00:00Z"}]}) == BASELINE
+    assert nightly.unit_baseline({"items": [{"first_seen": "2026-09-30T00:00:00Z"}, {"first_seen": BASELINE}, {}]}) == BASELINE
+    assert nightly.unit_baseline({}) == ""
+
+
+def files(*sizes):
+    return {f"k{index}": {"name": f"f{index}", "bytes": size, "adler32": "00000001"} for index, size in enumerate(sizes)}
+
+
+def ids(records):
+    return [record["id"] for record in records]
+
+
+def test_selection_checks_waiting_items_first_and_keeps_half_the_items_for_the_sample():
+    waiting = [{"id": f"w{index}", "_files": files(100)} for index in range(30)]
+    sample = [{"id": f"s{index}", "_files": files(100)} for index in range(20)]
+    chosen = nightly.select_for_verification(waiting, sample, max_items=40, max_bytes=100_000)
+    assert ids(chosen) == [f"w{index}" for index in range(20)] + [f"s{index}" for index in range(20)]
+
+
+def test_selection_splits_the_byte_budget_with_the_sample():
+    waiting = [{"id": f"w{index}", "_files": files(600, 400)} for index in range(10)]
+    sample = [{"id": f"s{index}", "_files": files(1_000)} for index in range(10)]
+    chosen = nightly.select_for_verification(waiting, sample, max_items=40, max_bytes=6_000)
+    assert ids(chosen) == ["w0", "w1", "w2", "s0", "s1", "s2"]
+
+
+def test_selection_gives_unused_shares_to_the_other_pool():
+    sample = [{"id": f"s{index}", "_files": files(1_000)} for index in range(10)]
+    assert ids(nightly.select_for_verification([], sample, max_items=40, max_bytes=6_000)) == [f"s{index}" for index in range(6)]
+    small_sample = [{"id": "s0", "_files": files(1_000)}]
+    waiting = [{"id": f"w{index}", "_files": files(1_000)} for index in range(10)]
+    assert ids(nightly.select_for_verification(waiting, small_sample, max_items=40, max_bytes=6_000)) == ["w0", "w1", "w2", "w3", "w4", "s0"]
+
+
+def test_selection_skips_uninventoried_items_and_counts_sampled_items_once():
+    waiting = [{"id": "s0", "_files": files(10)}, {"id": "w0"}, {"id": "w1", "_files": files(10)}]
+    sample = [{"id": "s0", "_files": files(10)}]
+    assert ids(nightly.select_for_verification(waiting, sample, max_items=40, max_bytes=1_000)) == ["w1", "s0"]
+
+
+def test_selection_always_checks_one_item_even_above_the_budget():
+    assert ids(nightly.select_for_verification([{"id": "big", "_files": files(10_000)}], [], max_items=40, max_bytes=1_000)) == ["big"]
+
+
+def test_summary_counts_items_waiting_for_a_byte_check():
+    def item(item_id, **extra):
+        return {"id": item_id, "hash": "h", "version": "3.0.0", "assets": ["a"], "audited_at": "t", "valid": True,
+                "schema_issues": [], "changed": False, "first_seen": BASELINE, **extra}
+    unit = {"scope": "dafab", "collection": "water_analysis", "kind": "derived", "baseline": BASELINE, "items": [
+        item("A_water_analysis_300"),
+        item("B_water_analysis_300", assets_changed_at="2026-09-29T16:00:00Z"),
+        item("C_water_analysis_300", assets_changed_at="2026-09-29T16:00:00Z", verified_at="2026-09-29T16:30:00Z", verify_ok=True),
+        item("D_water_analysis_300", changed_at="2026-09-29T16:00:00Z"),
+    ]}
+    summary = nightly.summarise({"water_analysis": unit}, "2026-09-30T02:00:00Z")
+    assert summary["matrix"][0]["verify_waiting"] == 1 and summary["totals"]["verify_waiting"] == 1

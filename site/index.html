@@ -93,7 +93,7 @@
           <div><b>–</b><span>Surplus storage</span></div>
         </div>
       </div>
-      <p class="note">Figures are recomputed each night from the public catalogue API. Documents are validated against the published schemas, and declared assets are matched against the attached files and their storage replica states. Items whose document changed, together with a random sample, are downloaded and verified against their recorded checksums within a nightly budget per collection. A rotating seventh of the catalogue is inventoried again every night.</p>
+      <p class="note">Figures are recomputed each night from the public catalogue API. Documents are validated against the published schemas, and declared assets are matched against the attached files and their storage replica states. Items whose declared assets or stored files changed, and newly published items, wait in a queue until a byte check covers them. Edits elsewhere in a document keep the earlier check. Each night the oldest waiting items and a random sample are downloaded and verified against their recorded checksums, within a budget per collection of which the sample keeps up to half, and failed checks are retried. A rotating seventh of the catalogue is inventoried again every night.</p>
     </div>
   </section>
 

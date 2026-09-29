@@ -84,7 +84,8 @@
     setStat("items", num(totals.items), summary.matrix.length + " collection groups");
     setStat("valid", num(totals.valid), share(totals.valid, totals.items), totals.valid === totals.items ? "good" : null);
     var failed = summary.matrix.reduce(function (sum, cell) { return sum + (cell.verify_failed || 0); }, 0);
-    setStat("verified", num(totals.verified), failed ? num(failed) + " failed" : "None failed", failed ? "bad" : null);
+    var waiting = totals.verify_waiting || 0;
+    setStat("verified", num(totals.verified), (failed ? num(failed) + " failed" : "None failed") + (waiting ? " · " + num(waiting) + " waiting" : ""), failed ? "bad" : null);
     setStat("anomalies", num(totals.anomalies), share(totals.anomalies, totals.items), totals.anomalies ? "bad" : "good");
     setStat("surplus", gb(totals.surplus_bytes), totals.surplus_items ? "On " + num(totals.surplus_items) + " items" : "No surplus files", totals.surplus_bytes ? "warn" : "good");
   }
@@ -97,7 +98,7 @@
         el("td", {}, [ratio(cell.valid, cell.items)]),
         el("td", {}, [ratio(cell.assets_complete, cell.inventoried)]),
         el("td", {}, [ratio(cell.available, cell.inventoried)]),
-        el("td", { class: "num", text: num(cell.verified) + (cell.verify_failed ? " (" + cell.verify_failed + " failed)" : "") }),
+        el("td", { class: "num", text: num(cell.verified) + (cell.verify_failed ? " (" + num(cell.verify_failed) + " failed)" : "") + (cell.verify_waiting ? " · " + num(cell.verify_waiting) + " waiting" : "") }),
         el("td", { class: "num", text: num(cell.changed) }),
         el("td", {}, [pill(num(cell.anomalies), cell.anomalies ? "bad" : "good")]),
         el("td", {}, [cell.surplus_items ? pill(num(cell.surplus_items) + " items · " + gb(cell.surplus_bytes), "warn") : pill("None", "good")])

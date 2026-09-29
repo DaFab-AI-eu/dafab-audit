@@ -17,9 +17,15 @@ For every item the audit checks three things.
   the catalogue and has an available replica in storage, and no attached file is
   undeclared. This inventory covers every changed item, a random sample and a rotating
   share, so that each item is re-inventoried at least weekly.
-- **Storage integrity.** Changed and sampled items are downloaded and every file is
-  compared, size and adler32, with what the catalogue recorded at publication. A full
-  pass over everything can be requested by hand.
+- **Storage integrity.** Items are downloaded and every file is compared, size and
+  adler32, with what the catalogue recorded at publication. An item whose declared
+  assets or stored files changed, or that was published after the first audited night,
+  waits in a queue until a check covers it. Edits elsewhere in the document, such as a
+  geometry synchronised from the source image, keep the earlier check, and a failed
+  check is retried. Each night the oldest waiting items and a random sample share a byte
+  budget per unit, up to half of it kept for the sample, so a large republication drains
+  over several nights instead of being skipped. A full pass over everything can be
+  requested by hand.
 
 It also states coverage, how many Sentinel-2 source images have a product per use case
 and version. Why an image has no product is not the audit's question; the processing
