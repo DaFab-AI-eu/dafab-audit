@@ -38,6 +38,7 @@ DISPLAY_ASSET_ORDER = {
     "smart_agriculture": ["dafab-field-boundaries"],
 }
 RENDERABLE_SUFFIXES = {".tif", ".tiff", ".jp2", ".png", ".jpg", ".jpeg", ".json", ".geojson"}
+PREVIEW_ROLES = {"thumbnail", "overview"}
 TRANSIENT_NETWORK_ATTEMPTS = 3
 TRANSIENT_NETWORK_RETRY_SECONDS = 1.0
 
@@ -80,6 +81,20 @@ def extension_for(asset_key: str, asset: dict[str, Any]) -> str:
     if "jpeg" in media_type:
         return ".jpg"
     return ".asset"
+
+
+def is_discovery_preview(asset: Any) -> bool:
+    """True for the thumbnail and overview images published for the discovery site.
+
+    They depict layers the collage renders itself from the data assets, so they are
+    verified as catalogue assets but not rendered as tiles.
+    """
+    if not isinstance(asset, dict):
+        return False
+    if "dafab:preview" in asset:
+        return True
+    roles = asset.get("roles") or []
+    return any(isinstance(role, str) and role in PREVIEW_ROLES for role in roles)
 
 
 def asset_sort_key(asset_key: str, collection: str) -> tuple[int, str]:
@@ -403,8 +418,9 @@ def render_snapshot(
     original_reference_value = rgb_report.pop("_reference_raster", None)
     original_reference = Path(original_reference_value) if isinstance(original_reference_value, str) else None
     tiles: list[Image.Image] = []
-    item_report: dict[str, Any] = {"item_id": item_id, "assets": []}
+    item_report: dict[str, Any] = {"item_id": item_id, "assets": [], "skipped_previews": []}
     assets = metadata.get("assets") or {}
+    preview_asset_keys = {key for key, asset in assets.items() if is_discovery_preview(asset)}
     vector_asset_keys = [
         asset_key
         for asset_key, asset in assets.items()
@@ -434,6 +450,9 @@ def render_snapshot(
 
     for asset_key in sorted(assets, key=lambda key: asset_sort_key(key, collection)):
         asset = assets[asset_key]
+        if asset_key in preview_asset_keys:
+            item_report["skipped_previews"].append(asset_key)
+            continue
         asset_report = {
             "asset_key": asset_key,
             "href": asset.get("href") if isinstance(asset, dict) else None,

@@ -1729,6 +1729,64 @@ def test_renderer_places_rgb_tile_last(tmp_path, monkeypatch):
     assert report["original_rgb"]["available"] is True
 
 
+def test_renderer_skips_discovery_previews(tmp_path, monkeypatch):
+    module = load_module("build_generated_asset_collage_previews", COLLAGE_SCRIPT)
+    metadata = {
+        "id": "PRODUCT_water_analysis_300",
+        "assets": {
+            "dafab-water-excess": {"href": "https://example.test/excess.png", "type": "image/png"},
+            "dafab-water-excess-overview": {
+                "href": "https://example.test/excess-overview.png", "type": "image/png",
+                "roles": ["overview"], "dafab:preview": {"bbox": [0, 0, 1, 1]},
+            },
+            "dafab-water-excess-thumbnail": {
+                "href": "https://example.test/excess-thumbnail.png", "type": "image/png", "roles": ["thumbnail"],
+            },
+        },
+    }
+    source = tmp_path / "source.png"
+    Image.new("RGB", (8, 8), "blue").save(source)
+    fetched = []
+
+    def fetch(url, destination, _ssl_context):
+        fetched.append(url)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes())
+
+    captured = {}
+
+    def make_collage(tiles, destination, **_kwargs):
+        captured["tiles"] = len(tiles)
+        Image.new("RGB", (10, 10), "white").save(destination)
+
+    monkeypatch.setattr(module, "fetch_asset", fetch)
+    monkeypatch.setattr(module, "make_collage", make_collage)
+    monkeypatch.setattr(
+        module,
+        "render_original_rgb",
+        lambda *_args, **_kwargs: (
+            Image.new("RGB", (10, 10), "red"),
+            {"available": True, "assets": [], "source": "TCI_20m"},
+        ),
+    )
+    snapshot = {
+        "product_id": "PRODUCT",
+        "use_case": "water-analysis",
+        "collection": "water_analysis",
+        "scope": "dafab",
+        "original_metadata": {},
+        "item": {"item_id": metadata["id"], "metadata": metadata},
+    }
+
+    report = module.render_snapshot(snapshot, tmp_path / "render", 32, object())
+
+    assert captured["tiles"] == 2  # the data layer and the original RGB, no preview tiles
+    assert fetched == ["https://example.test/excess.png"]
+    item_report = report["items"][0]
+    assert [asset["asset_key"] for asset in item_report["assets"]] == ["dafab-water-excess"]
+    assert item_report["skipped_previews"] == ["dafab-water-excess-overview", "dafab-water-excess-thumbnail"]
+
+
 def test_geojson_preview_uses_reference_raster_grid(tmp_path):
     import numpy as np
     import rasterio
