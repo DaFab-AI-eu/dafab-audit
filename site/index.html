@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DaFab catalogue audit</title>
+<meta name="description" content="Nightly audit of the DaFab catalogue: validity, asset completeness and storage integrity of every published item, per scope, collection and version.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <header>
+    <p class="eyebrow">DaFab · nightly catalogue audit</p>
+    <h1>Is what the catalogue publishes valid, complete and intact?</h1>
+    <p class="meta" id="generated">Loading the latest run…</p>
+    <p class="meta" id="links"></p>
+  </header>
+
+  <section aria-labelledby="totals-title">
+    <h2 id="totals-title">Tonight</h2>
+    <div class="totals" id="totals"></div>
+    <p class="note">Every number on this page is recomputed from the public API each night. Items are validated against the shipped schemas, their declared assets are matched with the files attached in the catalogue and with replica states in storage, and a rotating share plus every changed item is downloaded and checked byte by byte against the recorded checksum.</p>
+  </section>
+
+  <section aria-labelledby="matrix-title">
+    <h2 id="matrix-title">Scopes, collections and versions</h2>
+    <div class="table-wrap"><table id="matrix"></table></div>
+    <p class="note">Inventoried and verified counts include results carried over from earlier nights for items whose document has not changed since. A version is the processing version recorded in the document, or the id suffix for items without one. Assets whose files live outside the catalogue, such as the full Copernicus product links kept on a Sentinel-2 item, are counted as external and not verified.</p>
+    <div class="table-wrap" style="margin-top: 14px" hidden><table id="findings"></table></div>
+  </section>
+
+  <section aria-labelledby="coverage-title">
+    <h2 id="coverage-title">Coverage of the source images</h2>
+    <div class="table-wrap"><table id="coverage"></table></div>
+    <p class="note">How many Sentinel-2 source images have a product, per use case and version. Why an image has none is not the audit's question; the processing platform holds that answer.</p>
+  </section>
+
+  <section aria-labelledby="anomalies-title">
+    <h2 id="anomalies-title">Anomalies</h2>
+    <div class="controls">
+      <label>Scope <select id="filter-scope"><option value="">all</option></select></label>
+      <label>Collection <select id="filter-collection"><option value="">all</option></select></label>
+      <label>Kind <select id="filter-kind"><option value="">all</option><option value="schema">schema</option><option value="assets">assets</option><option value="bytes">bytes</option></select></label>
+      <label>Item <input id="filter-id" type="search" placeholder="part of an id"></label>
+      <span id="anomaly-count" class="count"></span>
+    </div>
+    <div class="table-wrap"><table id="anomalies"></table></div>
+    <button type="button" id="more" hidden>Show more</button>
+  </section>
+
+  <section aria-labelledby="history-title">
+    <h2 id="history-title">Night over night</h2>
+    <div class="table-wrap"><table id="history"></table></div>
+  </section>
+
+  <footer>
+    <p class="meta">Static page, no server behind it. Data files: <a href="data/summary.json">summary.json</a>, <a href="data/history.json">history.json</a>, one <code>data/units/&lt;unit&gt;.json</code> per collection or scope.</p>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

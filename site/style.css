@@ -1,0 +1,65 @@
+:root {
+  --ground: #f4f6f8;
+  --paper: #ffffff;
+  --ink: #17212b;
+  --muted: #5b6876;
+  --rule: #d9dfe6;
+  --accent: #0b5cab;
+  --accent-soft: #e6eef8;
+  --good: #1f7a3a;
+  --good-soft: #e5f3e9;
+  --bad: #a52a2a;
+  --bad-soft: #f8e7e7;
+  --warn: #8a5a00;
+  --warn-soft: #fbf3e2;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0f141a; --paper: #161d26; --ink: #e4e9ef; --muted: #98a4b3; --rule: #2a3542;
+    --accent: #7fb3ea; --accent-soft: #1a2a3c; --good: #6fcf8a; --good-soft: #17301f;
+    --bad: #f08a8a; --bad-soft: #3a1c1c; --warn: #e2b866; --warn-soft: #2c2413;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0f141a; --paper: #161d26; --ink: #e4e9ef; --muted: #98a4b3; --rule: #2a3542;
+  --accent: #7fb3ea; --accent-soft: #1a2a3c; --good: #6fcf8a; --good-soft: #17301f;
+  --bad: #f08a8a; --bad-soft: #3a1c1c; --warn: #e2b866; --warn-soft: #2c2413;
+}
+body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.55 var(--sans); padding: 32px 16px 64px; }
+.page { max-width: 68rem; margin: 0 auto; display: grid; gap: 36px; }
+header { display: grid; gap: 8px; }
+.eyebrow { margin: 0; font: 500 12px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.1rem); line-height: 1.2; text-wrap: balance; }
+h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.meta, .note { margin: 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+.note { margin-top: 10px; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: 0.92em; }
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.total { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.total b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.total span { color: var(--muted); font-size: 13px; }
+.table-wrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+th { font: 500 12px/1.4 var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); background: var(--accent-soft); position: sticky; top: 0; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; }
+td.id { font-family: var(--mono); font-size: 12.5px; max-width: 34rem; overflow: hidden; text-overflow: ellipsis; }
+td.issues { white-space: normal; max-width: 36rem; color: var(--muted); font-size: 13px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font: 500 12px/1.6 var(--mono); }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.muted { background: var(--accent-soft); color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; margin-bottom: 12px; }
+.controls label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.controls select, .controls input { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 8px; min-width: 9rem; }
+.count { color: var(--muted); font-size: 13px; align-self: center; }
+button { font: 500 14px/1 var(--sans); color: var(--paper); background: var(--accent); border: 0; border-radius: 6px; padding: 10px 14px; cursor: pointer; margin-top: 12px; }
+footer { border-top: 1px solid var(--rule); padding-top: 16px; }
+@media (max-width: 640px) { th, td { padding: 7px 8px; } .controls select, .controls input { min-width: 7rem; } }
