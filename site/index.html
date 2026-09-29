@@ -1,60 +1,151 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DaFab catalogue audit</title>
-<meta name="description" content="Nightly audit of the DaFab catalogue: validity, asset completeness and storage integrity of every published item, per scope, collection and version.">
+<title>DaFab Catalogue Audit</title>
+<meta name="description" content="Nightly audit of the DaFab catalogue covering schema validity, asset completeness and storage integrity for every published item.">
+<link rel="icon" type="image/png" href="dafab-logo.png">
 <link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    var theme = null;
+    try { theme = window.localStorage.getItem("dafab-audit-theme"); } catch (error) { theme = null; }
+    if (theme !== "light" && theme !== "dark") {
+      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
 </head>
 <body>
-<main class="page">
-  <header>
-    <p class="eyebrow">DaFab · nightly catalogue audit</p>
-    <h1>Is what the catalogue publishes valid, complete and intact?</h1>
-    <p class="meta" id="generated">Loading the latest run…</p>
-    <p class="meta" id="links"></p>
-  </header>
-
-  <section aria-labelledby="totals-title">
-    <h2 id="totals-title">Tonight</h2>
-    <div class="totals" id="totals"></div>
-    <p class="note">Every number on this page is recomputed from the public API each night. Items are validated against the shipped schemas, their declared assets are matched with the files attached in the catalogue and with replica states in storage, and a rotating share plus every changed item is downloaded and checked byte by byte against the recorded checksum.</p>
-  </section>
-
-  <section aria-labelledby="matrix-title">
-    <h2 id="matrix-title">Scopes, collections and versions</h2>
-    <div class="table-wrap"><table id="matrix"></table></div>
-    <p class="note">Inventoried and verified counts include results carried over from earlier nights for items whose document has not changed since. A version is the processing version recorded in the document, or the id suffix for items without one. Assets whose files live outside the catalogue, such as the full Copernicus product links kept on a Sentinel-2 item, are counted as external and not verified. Surplus files are attached to an item in the catalogue but declared by no asset with a catalogue link, so nobody can reach them; they do not make an item incomplete, they cost storage.</p>
-    <div class="table-wrap" style="margin-top: 14px" hidden><table id="findings"></table></div>
-  </section>
-
-  <section aria-labelledby="coverage-title">
-    <h2 id="coverage-title">Coverage of the source images</h2>
-    <div class="table-wrap"><table id="coverage"></table></div>
-    <p class="note">How many Sentinel-2 source images have a product, per use case and version. Why an image has none is not the audit's question; the processing platform holds that answer.</p>
-  </section>
-
-  <section aria-labelledby="anomalies-title">
-    <h2 id="anomalies-title">Anomalies</h2>
-    <div class="controls">
-      <label>Scope <select id="filter-scope"><option value="">all</option></select></label>
-      <label>Collection <select id="filter-collection"><option value="">all</option></select></label>
-      <label>Kind <select id="filter-kind"><option value="problems">problems</option><option value="">all, surplus included</option><option value="schema">schema</option><option value="assets">assets</option><option value="bytes">bytes</option><option value="surplus">surplus</option></select></label>
-      <label>Item <input id="filter-id" type="search" placeholder="part of an id"></label>
-      <span id="anomaly-count" class="count"></span>
+<header class="global-header">
+  <div class="header-left">
+    <a class="brand-lockup" href="https://dafab.cern.ch/discover/" title="DaFab discovery">
+      <img class="brand-logo" src="dafab-logo.png" alt="" width="38" height="38">
+      <span>DaFab</span>
+    </a>
+    <details class="mobile-nav" id="mobile-nav">
+      <summary class="header-action" aria-label="Open product navigation" title="Product navigation">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </summary>
+      <nav class="mobile-menu" aria-label="Product navigation">
+        <a href="https://dafab.cern.ch/discover/"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.54 15H17a2 2 0 0 0-2 2v4.54"/><path d="M7 3.34V5a3 3 0 0 0 3 3a2 2 0 0 1 2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.1.9-2 2-2h3.17"/><path d="M11 21.95V18a2 2 0 0 0-2-2a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2H2.05"/><circle cx="12" cy="12" r="10"/></svg><span>Explore</span></a>
+        <a href="https://dafab.cern.ch/stac" target="_blank" rel="noopener noreferrer"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span>STAC catalogue</span></a>
+        <a href="https://dafab.cern.ch/stac/water-basin-map" target="_blank" rel="noopener noreferrer"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg><span>Basin map</span></a>
+        <a href="https://dafab.cern.ch/discover/jobs/"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span>Dashboard</span></a>
+        <a class="is-active" href="./" aria-current="page"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span>Audit</span></a>
+      </nav>
+    </details>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a href="https://dafab.cern.ch/discover/" title="Search the catalogue on a map"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.54 15H17a2 2 0 0 0-2 2v4.54"/><path d="M7 3.34V5a3 3 0 0 0 3 3a2 2 0 0 1 2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.1.9-2 2-2h3.17"/><path d="M11 21.95V18a2 2 0 0 0-2-2a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2H2.05"/><circle cx="12" cy="12" r="10"/></svg><span>Explore</span></a>
+      <a href="https://dafab.cern.ch/stac" target="_blank" rel="noopener noreferrer" title="Open the raw STAC catalogue in a new tab"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span>STAC catalogue</span></a>
+      <a href="https://dafab.cern.ch/stac/water-basin-map" target="_blank" rel="noopener noreferrer" title="Open the reference basin map in a new tab"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg><span>Basin map</span></a>
+      <a href="https://dafab.cern.ch/discover/jobs/" title="Submit and monitor processing jobs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span>Dashboard</span></a>
+      <a class="is-active" href="./" aria-current="page"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span>Audit</span></a>
+    </nav>
+  </div>
+  <div class="header-right">
+    <div class="service-pill" id="run-pill" title="Nightly catalogue audit">
+      <span></span>
+      <div><strong>Nightly audit</strong><small id="run-pill-text">Loading the latest run</small></div>
     </div>
-    <div class="table-wrap"><table id="anomalies"></table></div>
-    <button type="button" id="more" hidden>Show more</button>
+    <button class="header-action" id="theme-toggle" type="button" aria-label="Use dark theme" title="Change theme">
+      <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="page">
+  <section class="hero" aria-labelledby="page-title">
+    <span class="eyebrow">Catalogue audit</span>
+    <h1 id="page-title">Catalogue integrity report</h1>
+    <p class="lead">Every item the DaFab catalogue publishes is checked each night for schema validity, asset completeness and storage integrity.</p>
+    <p class="meta" id="generated">Loading the latest run…</p>
+    <div class="hero-links" id="links"></div>
   </section>
 
-  <section aria-labelledby="history-title">
-    <h2 id="history-title">Night over night</h2>
-    <div class="table-wrap"><table id="history"></table></div>
+  <section class="panel" aria-labelledby="totals-title">
+    <header class="panel-header">
+      <div><span class="eyebrow">Latest run</span><h2 id="totals-title">Summary</h2></div>
+    </header>
+    <div class="panel-body">
+      <div class="totals">
+        <div class="stat" data-total="items">
+          <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg></span>
+          <div><b>–</b><span>Items audited</span></div>
+        </div>
+        <div class="stat" data-total="valid">
+          <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg></span>
+          <div><b>–</b><span>Valid documents</span></div>
+        </div>
+        <div class="stat" data-total="verified">
+          <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 16h.01"/><path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M21.946 12.013H2.054"/><path d="M6 16h.01"/></svg></span>
+          <div><b>–</b><span>Byte-verified items</span></div>
+        </div>
+        <div class="stat" data-total="anomalies">
+          <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+          <div><b>–</b><span>Items with findings</span></div>
+        </div>
+        <div class="stat" data-total="surplus">
+          <span class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></span>
+          <div><b>–</b><span>Surplus storage</span></div>
+        </div>
+      </div>
+      <p class="note">Figures are recomputed each night from the public catalogue API. Documents are validated against the published schemas, and declared assets are matched against the attached files and their storage replica states. Items whose document changed, together with a random sample, are downloaded and verified against their recorded checksums within a nightly budget per collection. A rotating seventh of the catalogue is inventoried again every night.</p>
+    </div>
   </section>
 
-  <footer>
-    <p class="meta">Static page, no server behind it. Data files: <a href="data/summary.json">summary.json</a>, <a href="data/history.json">history.json</a>, one <code>data/units/&lt;unit&gt;.json</code> per collection or scope.</p>
+  <section class="panel" aria-labelledby="matrix-title">
+    <header class="panel-header">
+      <div><span class="eyebrow">Catalogue</span><h2 id="matrix-title">Scopes, collections and versions</h2></div>
+    </header>
+    <div class="panel-body">
+      <div class="table-wrap"><table id="matrix"></table></div>
+      <div class="table-wrap findings-wrap" hidden><table id="findings"></table></div>
+      <p class="note">Counts include results carried over from earlier runs for items whose document has not changed since. Changed counts the items whose document differs from the previous run. The version is the processing version recorded in the document, or the identifier suffix for items without one. Assets stored outside the catalogue, such as the Copernicus product links on Sentinel-2 items, are counted as external and are not verified. Surplus files are attached to an item but referenced by none of its assets. They do not make an item incomplete, yet they occupy storage.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="coverage-title">
+    <header class="panel-header">
+      <div><span class="eyebrow">Coverage</span><h2 id="coverage-title">Source image coverage</h2></div>
+    </header>
+    <div class="panel-body">
+      <div class="table-wrap"><table id="coverage"></table></div>
+      <p class="note">Sentinel-2 source images with at least one product, per use case and version. Reasons for a missing product are outside the scope of this report and are tracked by the processing platform.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="anomalies-title">
+    <header class="panel-header">
+      <div><span class="eyebrow">Findings</span><h2 id="anomalies-title">Items with findings</h2></div>
+      <span id="anomaly-count" class="count"></span>
+    </header>
+    <div class="panel-body">
+      <div class="controls">
+        <label>Scope <select id="filter-scope"><option value="">All</option></select></label>
+        <label>Collection <select id="filter-collection"><option value="">All</option></select></label>
+        <label>Kind <select id="filter-kind"><option value="problems">Problems</option><option value="">All, including surplus</option><option value="schema">Schema</option><option value="assets">Assets</option><option value="bytes">Bytes</option><option value="surplus">Surplus</option></select></label>
+        <label class="grow">Item <input id="filter-id" type="search" placeholder="Part of an item identifier"></label>
+      </div>
+      <div class="table-wrap"><table id="anomalies"></table></div>
+      <button type="button" class="secondary-button" id="more" hidden>Show more</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="history-title">
+    <header class="panel-header">
+      <div><span class="eyebrow">History</span><h2 id="history-title">Previous runs</h2></div>
+    </header>
+    <div class="panel-body">
+      <div class="table-wrap"><table id="history"></table></div>
+    </div>
+  </section>
+
+  <footer class="page-footer">
+    <p>Published nightly by the DaFab audit workflow from the public catalogue API. Machine-readable results are available as <a href="data/summary.json">summary.json</a> and <a href="data/history.json">history.json</a>, with one file per collection or scope under <code>data/units</code>.</p>
   </footer>
 </main>
 <script src="app.js"></script>
