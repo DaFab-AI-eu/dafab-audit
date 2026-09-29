@@ -42,9 +42,15 @@
   }
   function itemLinks(row, links) {
     var cell = el("td", { class: "id" });
+    // The STAC catalogue and discovery serve the public dafab scope only, so auxiliary items
+    // (HAND, WorldCover, GFM) are listed without links.
+    if (row.scope !== "dafab") {
+      cell.appendChild(el("span", { title: "Auxiliary " + row.scope + " item, not served by the STAC catalogue", text: row.id }));
+      return cell;
+    }
     var stac = links.stac_root + "/collections/" + encodeURIComponent(row.collection) + "/items/" + encodeURIComponent(row.id);
     cell.appendChild(el("a", { href: stac, title: "Open the STAC item", target: "_blank", rel: "noopener", text: row.id }));
-    if (row.scope === "dafab" && links.discovery) {
+    if (links.discovery) {
       cell.appendChild(document.createTextNode(" · "));
       cell.appendChild(el("a", { href: links.discovery + "?item=" + encodeURIComponent(row.id), title: "Open the item in discovery", target: "_blank", rel: "noopener", text: "discovery" }));
     }
