@@ -32,7 +32,7 @@ from typing import Any
 SITE_URL_DEFAULT = "https://dafab-ai-eu.github.io/dafab-audit"
 STAC_ROOT_DEFAULT = "https://dafab.cern.ch/stac"
 DISCOVERY_API_DEFAULT = "https://dafab.cern.ch/discover/api"
-DISCOVERY_SITE_DEFAULT = "https://dafab.cern.ch/discover/"
+DISCOVERY_SITE_DEFAULT = "https://dafab.cern.ch/"
 PUBLIC_SCOPE = "dafab"
 STATE_SCHEMA_VERSION = 1
 HISTORY_LIMIT = 400

@@ -1,5 +1,7 @@
 import argparse
 import json
+import re
+from pathlib import Path
 
 from dafab_audit import nightly
 
@@ -293,3 +295,10 @@ def test_summary_counts_items_waiting_for_a_byte_check():
     ]}
     summary = nightly.summarise({"water_analysis": unit}, "2026-09-30T02:00:00Z")
     assert summary["matrix"][0]["verify_waiting"] == 1 and summary["totals"]["verify_waiting"] == 1
+
+
+def test_site_header_links_the_pages_where_the_server_serves_them():
+    page = (Path(__file__).resolve().parents[1] / "site" / "index.html").read_text()
+    links = set(re.findall(r'href="(https://dafab\.cern\.ch[^"]*)"', page))
+    assert links == {"https://dafab.cern.ch/", "https://dafab.cern.ch/jobs/", "https://dafab.cern.ch/stac", "https://dafab.cern.ch/water-basin-map.html"}
+    assert nightly.DISCOVERY_SITE_DEFAULT == "https://dafab.cern.ch/"
