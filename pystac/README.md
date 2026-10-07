@@ -29,12 +29,18 @@ Rucio-specific capabilities that power DaFab workflows.
 
 ## Running the notebook
 
-Use any Python environment with Jupyter and PySTAC installed.
+Use any Python environment with Jupyter and PySTAC installed, with PySTAC's
+validation extra for the validation section.
 
 ```bash
-python -m pip install jupyter pystac
+python -m pip install jupyter "pystac[validation]"
 jupyter notebook pystac-navigation.ipynb
 ```
+
+Run it with a kernel from that environment. This folder is itself named
+`pystac`, so a kernel without PySTAC whose path includes the repository root, as
+an IDE's project kernel often does, imports the folder instead, and the first
+code cell then stops with an explanation.
 
 The notebook contains direct defaults for the public service. A custom CA bundle
 is needed only when the local Python certificate store cannot validate the
