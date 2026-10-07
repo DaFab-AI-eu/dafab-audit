@@ -476,7 +476,7 @@ def schema_validation(kind: str, document: dict[str, Any], collection: str | Non
                                               expected_collection_id=collection, check_catalog_state=False)
         else:
             report = dc.validate_original_item(source="local", item_path=str(path), expected_item_id=document["id"],
-                                               expected_collection_id=collection, check_catalog_state=False, check_related_links=False)
+                                               expected_collection_id=collection, check_catalog_state=False)
         if not report.get("valid"):
             issues.extend(str(error) for error in (report.get("errors") or ["schema validation failed"])[:5])
     except Exception as exc:  # noqa: BLE001 - one bad document must not stop the unit

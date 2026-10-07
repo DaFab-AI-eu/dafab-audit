@@ -420,7 +420,6 @@ def discover_candidate_ids(scope: str, product_id: str, collection: str) -> list
         scope=scope,
         filters={"name": f"{product_id}_{collection}_*"},
         long=True,
-        recursive=False,
     )
     return sorted(
         {
